@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <bluetooth/bluetooth.h>
+#include "btest/btest.h"
 
 int
 main(

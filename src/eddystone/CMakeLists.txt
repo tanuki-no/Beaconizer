@@ -16,6 +16,6 @@ SET ( Sources		"eddystone.c" )
 
 # Set up build
 ADD_EXECUTABLE ( "${BUILD_NAME}"	${Sources} )
-TARGET_LINK_LIBRARIES ( "${BUILD_NAME}" ${BLUEZ_LIBRARY} )
+TARGET_LINK_LIBRARIES ( "${BUILD_NAME}" ${BLUETOOTH_LIBRARY} )
 
 # End of file

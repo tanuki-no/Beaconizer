@@ -4,7 +4,7 @@
 ENABLE_LANGUAGE ( C )
 
 # Define build name
-STRING ( BUILD_NAME	"ibeacon_${PROJECT_NAME}" )
+SET ( BUILD_NAME	"ibeacon_${PROJECT_NAME}" )
 
 # Set includes path
 INCLUDE_DIRECTORIES (
@@ -12,12 +12,10 @@ INCLUDE_DIRECTORIES (
     )
 
 # Add sources
-SET ( Sources
-    "ibeacon.c"
-    )
+SET ( Sources		"ibeacon.c" )
 
 # Set up build
 ADD_EXECUTABLE ( "${BUILD_NAME}"	${Sources} )
-TARGET_LINK_LIBRARIES ( "${BUILD_NAME}" ${BLUEZ_LIBRARY} )
+TARGET_LINK_LIBRARIES ( "${BUILD_NAME}" ${BLUETOOTH_LIBRARY} )
 
 # End of file
