@@ -16,6 +16,15 @@
 /*! Help */
 void help();
 
+/*! Load defaults */
+void set_defaults();
+
+/*! Handle command line args */
+int process_command_line(
+    int             argc,
+    char * const    argv[]
+);
+
 /*! Command line args */
 static const struct option ibeacon_long_options[] = {
     { "advert",     required_argument, NULL, 'a' },
@@ -35,217 +44,28 @@ static const struct option ibeacon_long_options[] = {
 
 const char* ibeacon_short_options = "a:c:i:M:m:n:p:s:t:u:vh";
 
+/* Settings */
+uint16_t    hci_index;          /*! HCI module index */
+uint8_t     mode;               /*! Connection mode */
+ibeacon_t   beacon_settings;    /*! Beacon settings */
+
 /*! Main loop */
 int
 main(int argc, char * const argv[], char * const env[]) {
 
     /* Set up deafults */
     int exit_status = EXIT_SUCCESS;
-    uint16_t hci_index = __IBEACON_DEFAULT_HCI_CTRL;
-    uint8_t mode = __IBEACON_DEFAULT_CONN_MODE;
 
-    ibeacon_t beacon_settings = {
-        .advertize      = __IBEACON_DEFAULT_ADVERTISE,
-        .major          = __IBEACON_DEFAULT_MAJOR,
-        .minor          = __IBEACON_DEFAULT_MINOR,
-        .measured_power = __IBEACON_DEFAULT_MEASURED_POWER,
-        .tx_power       = __IBEACON_DEFAULT_TX_POWER
-    };
+    /* Set up deafults */
+    set_defaults();
 
-    {
-        strncpy(beacon_settings.name,       __IBEACON_DEFAULT_NAME,     sizeof(__IBEACON_DEFAULT_NAME));
-        strncpy(beacon_settings.password,   __IBEACON_DEFAULT_PASSWORD, __IBEACON_PASSWORD_LENGTH);
-        strncpy(beacon_settings.serial,     __IBEACON_DEFAULT_SERIAL,   __IBEACON_SERIAL_LENGTH);
-        getrandom(beacon_settings.uuid, 16, GRND_RANDOM);
-    }
-
-    int8_t minor_is_set = 0, major_is_set = 0;
-
-    /* Process options */
-    for (int key = getopt_long(argc, argv, ibeacon_short_options, ibeacon_long_options, NULL), index = 0;
-             key != -1;
-             key = getopt_long(argc, argv, ibeacon_short_options, ibeacon_long_options, &index)) {
-        
-        char* ep = NULL;
-        long c = 0;
-        size_t l = 0;
-
-        switch (key) {
-            case 'a':   /* Advertizing interval */
-                errno = 0;
-                c = strtol(optarg, &ep, 0);
-                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
-                    perror("Bad advertize value: ");
-                    return EXIT_FAILURE;
-                }
-                
-                if (0 > c) {
-                    printf("Advertizing value must be positive! Exiting ...\n");
-                    return EXIT_FAILURE;
-                }
-
-                beacon_settings.advertize = (uint32_t) c;
-                break;
-            case 'c':   /* Connection mode */
-                errno = 0;
-                c = strtol(optarg, &ep, 0);
-                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
-                    perror("Bad connection mode value: ");
-                    return EXIT_FAILURE;
-                }
-
-                if (0 > c) {
-                    printf("Connection mode value must be positive! Exiting ...\n");
-                    return EXIT_FAILURE;
-                }
-
-                if (UINT8_MAX < c) {
-                    printf("Connection mode must be less than %u! Exiting ...\n", UINT8_MAX);
-                    return EXIT_FAILURE;
-                }
-
-                mode = (uint8_t) c;
-                break;
-            case 'i':   /* HCI index */
-                errno = 0;
-                c = strtol(optarg, &ep, 0);
-                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
-                    perror("Bad bluetooth controller index value: ");
-                    return EXIT_FAILURE;
-                }
-
-                if (0 > c) {
-                    printf("Bluetooth controller index value must be positive! Exiting ...\n");
-                    return EXIT_FAILURE;
-                }
-
-                if (UINT16_MAX < c) {
-                    printf("Bluetooth controller index must be less than %u! Exiting ...\n", UINT16_MAX);
-                    return EXIT_FAILURE;
-                }
-
-                hci_index = (uint16_t) c;
-                break;
-            case 'M':   /* Major */
-                errno = 0;
-                c = strtol(optarg, &ep, 0);
-                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
-                    perror("Bad major value: ");
-                    return EXIT_FAILURE;
-                }
-
-                if (0 > c) {
-                    printf("Major value must be positive! Exiting ...\n");
-                    return EXIT_FAILURE;
-                }
-
-                if (UINT16_MAX < c) {
-                    printf("Major value must be less than %u! Exiting ...\n", UINT16_MAX);
-                    return EXIT_FAILURE;
-                }
-
-                beacon_settings.major = (uint16_t) c;
-                major_is_set = 1;
-                break;
-            case 'm':   /* Minor */
-                errno = 0;
-                c = strtol(optarg, &ep, 0);
-                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
-                    perror("Bad minor value: ");
-                    return EXIT_FAILURE;
-                }
-
-                if (0 > c) {
-                    printf("Minor value must be positive! Exiting ...\n");
-                    return EXIT_FAILURE;
-                }
-
-                if (UINT16_MAX < c) {
-                    printf("Minor value must be less than %u! Exiting ...\n", UINT16_MAX);
-                    return EXIT_FAILURE;
-                }
-                
-                beacon_settings.minor = (uint16_t) c;
-                minor_is_set = 1;
-                break;
-            case 'n':   /* Beacon name */
-                l = strlen(optarg);
-                if (__IBEACON_DEFAULT_NAME_LENGTH <= l) {
-                    printf("%s is to big for iBeacon name, expecting %u characters! Exiting ...\n",
-                        optarg,
-                        __IBEACON_DEFAULT_NAME_LENGTH - 1);
-                    return EXIT_FAILURE;
-                }
-
-                strncpy(beacon_settings.name, optarg, __IBEACON_DEFAULT_NAME_LENGTH - 1);
-
-                break;
-            case 'p':   /* Password */
-                l = strlen(optarg);
-                if (__IBEACON_PASSWORD_LENGTH < l) {
-                    printf("%s is to big for iBeacon password, expecting %u characters! Exiting ...\n",
-                        optarg,
-                        __IBEACON_PASSWORD_LENGTH);
-                    return EXIT_FAILURE;
-                }
-
-                bcopy(optarg, beacon_settings.password, __IBEACON_PASSWORD_LENGTH);
-
-                break;
-            case 's':   /* Serial */
-                l = strlen(optarg);
-                if (__IBEACON_SERIAL_LENGTH < l) {
-                    printf("%s is to big for iBeacon serial, expecting %u characters! Exiting ...\n",
-                        optarg,
-                        __IBEACON_SERIAL_LENGTH);
-                    return EXIT_FAILURE;
-                }
-
-                bcopy(optarg, beacon_settings.serial, __IBEACON_SERIAL_LENGTH);
-
-                break;
-            case 't':   /* TX Power */
-                break;
-            case 'u':   /* UUID */
-                break;
-            case 'h':   /* Help */
-                help();
-                return exit_status;
-                break;
-            case 'v':   /* Version */
-                printf("%s\n", __BTEST_VERSION_STRING);
-                return exit_status;
-                break;
-            default:
-                help();
-                return EXIT_FAILURE;
-        }
-    }
-
-    /* Check wrong args */
-    if (optind < argc) {
-        printf("Bad parameters:");
-        while (optind < argc)
-            printf(" \"%s\"", argv[optind++]);
-        printf("! Exiting ...\n");
+    /* Process command line */
+    if (EXIT_SUCCESS != process_command_line(argc, argv)) {
         return EXIT_FAILURE;
     }
 
-    /* Check major/minor */
-    if (!major_is_set) {
-        printf("Please, set iBeacon major value! Exiting ...\n\n");
-        help();
-        return exit_status;
-    }
-
-    if (!minor_is_set) {
-        printf("Please, set iBeacon minor value! Exiting ...\n\n");
-        help();
-        return exit_status;
-    }
-
     /* Start advertising */
-    printf("hci%u: \"%s\" %.2X%.2X%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X/%u:%u, adv %u ms ...\n",
+    printf("hci%u: \"%s\" %.2X%.2X%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X/%u:%u (S/N: %c%c%c%c%c, TX %f dBm), adv %u ms ...\n",
         hci_index,
         beacon_settings.name,
         beacon_settings.uuid[0],  beacon_settings.uuid[1],  beacon_settings.uuid[2],  beacon_settings.uuid[3],
@@ -254,6 +74,9 @@ main(int argc, char * const argv[], char * const env[]) {
         beacon_settings.uuid[12], beacon_settings.uuid[13], beacon_settings.uuid[14], beacon_settings.uuid[15],
         beacon_settings.major,
         beacon_settings.minor,
+        beacon_settings.serial[0],beacon_settings.serial[1],beacon_settings.serial[2],beacon_settings.serial[3],
+        beacon_settings.serial[4],
+        beacon_settings.tx_power,
         beacon_settings.advertize);
 
     /* Done!*/
@@ -296,11 +119,324 @@ main(int argc, char * const argv[], char * const env[]) {
     printf(
         "\t-t, --tx <num>         TX Power (optional value in dBm, default is %f)\n", __IBEACON_DEFAULT_TX_POWER);
     printf(
-        "\t-u, --uuid <str>       UUID (optional, autogenerated by default)\n");
+        "\t-u, --uuid <str>       UUID (optional, autogenerated by default, must be 32 digits, separated by \':\' or \'-\')\n");
     printf(
         "\t-h, --help             Show help options\n"
         "\t-v, --version          Show version\n"
         "---------------------------------------------------------------------------------------------------\n");
  }
+
+/*! Set defaults */
+void set_defaults() {
+    hci_index                   = __IBEACON_DEFAULT_HCI_CTRL;
+    mode                        = __IBEACON_DEFAULT_CONN_MODE;
+
+    beacon_settings.advertize   = __IBEACON_DEFAULT_ADVERTISE;
+    beacon_settings.major       = __IBEACON_DEFAULT_MAJOR;
+    beacon_settings.minor       = __IBEACON_DEFAULT_MINOR;
+    beacon_settings.measured_power = __IBEACON_DEFAULT_MEASURED_POWER;
+    beacon_settings.tx_power    = __IBEACON_DEFAULT_TX_POWER;
+    strncpy(
+        beacon_settings.name,
+        __IBEACON_DEFAULT_NAME,
+        sizeof(__IBEACON_DEFAULT_NAME));
+    strncpy(
+        beacon_settings.password,
+        __IBEACON_DEFAULT_PASSWORD,
+        __IBEACON_PASSWORD_LENGTH);
+    strncpy(
+        beacon_settings.serial,
+        __IBEACON_DEFAULT_SERIAL,
+        __IBEACON_SERIAL_LENGTH);
+    getrandom(
+        beacon_settings.uuid,
+        16,
+        GRND_RANDOM);
+}
+
+/*! Handle command line args */
+int process_command_line(
+    int             argc,
+    char * const    argv[]
+) {
+    int8_t minor_is_set = 0, major_is_set = 0;
+
+    /* Process options */
+    for (int key = getopt_long(argc, argv, ibeacon_short_options, ibeacon_long_options, NULL), index = 0;
+             key != -1;
+             key = getopt_long(argc, argv, ibeacon_short_options, ibeacon_long_options, &index)) {
+        
+        char* ep = NULL;
+        long c = 0;
+        double d = 0.0;
+        size_t l = 0;
+
+        switch (key) {
+            /* Advertizing interval */
+            case 'a':   {
+
+                errno = 0;
+                c = strtol(optarg, &ep, 0);
+                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
+                    perror("Bad advertize value: ");
+                    return EXIT_FAILURE;
+                }
+                
+                if (0 > c) {
+                    printf("Advertizing value must be positive! Exiting ...\n");
+                    return EXIT_FAILURE;
+                }
+
+                beacon_settings.advertize = (uint32_t) c;
+
+            } break;
+
+            /* Connection mode */
+            case 'c': {
+
+                errno = 0;
+                c = strtol(optarg, &ep, 0);
+                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
+                    perror("Bad connection mode value: ");
+                    return EXIT_FAILURE;
+                }
+
+                if (0 > c) {
+                    printf("Connection mode value must be positive! Exiting ...\n");
+                    return EXIT_FAILURE;
+                }
+
+                if (UINT8_MAX < c) {
+                    printf("Connection mode must be less than %u! Exiting ...\n", UINT8_MAX);
+                    return EXIT_FAILURE;
+                }
+
+                mode = (uint8_t) c;
+
+                } break;
+
+            /* HCI index */
+            case 'i': {
+
+                errno = 0;
+                c = strtol(optarg, &ep, 0);
+                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
+                    perror("Bad bluetooth controller index value: ");
+                    return EXIT_FAILURE;
+                }
+
+                if (0 > c) {
+                    printf("Bluetooth controller index value must be positive! Exiting ...\n");
+                    return EXIT_FAILURE;
+                }
+
+                if (UINT16_MAX < c) {
+                    printf("Bluetooth controller index must be less than %u! Exiting ...\n", UINT16_MAX);
+                    return EXIT_FAILURE;
+                }
+
+                hci_index = (uint16_t) c;
+
+                } break;
+
+            /* Major */
+            case 'M': { 
+
+                errno = 0;
+                c = strtol(optarg, &ep, 0);
+                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
+                    perror("Bad major value: ");
+                    return EXIT_FAILURE;
+                }
+
+                if (0 > c) {
+                    printf("Major value must be positive! Exiting ...\n");
+                    return EXIT_FAILURE;
+                }
+
+                if (UINT16_MAX < c) {
+                    printf("Major value must be less than %u! Exiting ...\n", UINT16_MAX);
+                    return EXIT_FAILURE;
+                }
+
+                beacon_settings.major = (uint16_t) c;
+                major_is_set = 1;
+
+                } break;
+
+            /* Minor */
+            case 'm': { 
+
+                errno = 0;
+                c = strtol(optarg, &ep, 0);
+                if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
+                    perror("Bad minor value: ");
+                    return EXIT_FAILURE;
+                }
+
+                if (0 > c) {
+                    printf("Minor value must be positive! Exiting ...\n");
+                    return EXIT_FAILURE;
+                }
+
+                if (UINT16_MAX < c) {
+                    printf("Minor value must be less than %u! Exiting ...\n", UINT16_MAX);
+                    return EXIT_FAILURE;
+                }
+                
+                beacon_settings.minor = (uint16_t) c;
+                minor_is_set = 1;
+
+                } break;
+
+            /* Beacon name */
+            case 'n': {
+
+                l = strlen(optarg);
+                if (__IBEACON_DEFAULT_NAME_LENGTH <= l) {
+                    printf("%s is to big for iBeacon name, expecting %u characters! Exiting ...\n",
+                        optarg,
+                        __IBEACON_DEFAULT_NAME_LENGTH - 1);
+                    return EXIT_FAILURE;
+                }
+
+                strncpy(beacon_settings.name, optarg, __IBEACON_DEFAULT_NAME_LENGTH - 1);
+
+                } break;
+
+            /* Password */
+            case 'p': {
+
+                l = strlen(optarg);
+                if (__IBEACON_PASSWORD_LENGTH < l) {
+                    printf("%s is to big for iBeacon password, expecting %u characters! Exiting ...\n",
+                        optarg,
+                        __IBEACON_PASSWORD_LENGTH);
+                    return EXIT_FAILURE;
+                }
+
+                bcopy(optarg, beacon_settings.password, __IBEACON_PASSWORD_LENGTH);
+
+                } break;
+
+            /* Serial */
+            case 's': {
+
+                l = strlen(optarg);
+                if (__IBEACON_SERIAL_LENGTH < l) {
+                    printf("%s is to big for iBeacon serial, expecting %u characters! Exiting ...\n",
+                        optarg,
+                        __IBEACON_SERIAL_LENGTH);
+                    return EXIT_FAILURE;
+                }
+
+                bcopy(optarg, beacon_settings.serial, __IBEACON_SERIAL_LENGTH);
+
+                } break;
+
+            /* TX Power */
+            case 't': {
+
+                errno = 0;
+                d = strtod(optarg, &ep);
+                if (ERANGE == errno) {
+                    perror("Bad TX power value: ");
+                    return EXIT_FAILURE;
+                }
+
+                beacon_settings.tx_power = d;
+
+                } break;
+
+            /* UUID */
+            case 'u': {
+                /* Parse UUID */
+                l = strlen(optarg);
+                for (size_t i = 0, j = 0, k = 0; (i < l) && (j < 16); ++i) {
+                    if (('0' <= optarg[i]) && ('9' >= optarg[i])) {
+                        if (k) {
+                            beacon_settings.uuid[j] <<= 4;
+                            beacon_settings.uuid[j] |=  (optarg[i] - '0');
+                            j++;
+                        } else {
+                            beacon_settings.uuid[j] =  (optarg[i] - '0');
+                        }
+                        k = !k;
+                    } else if (('A' <= optarg[i]) && ('F' >= optarg[i])) {
+                        if (k) {
+                            beacon_settings.uuid[j] <<= 4;
+                            beacon_settings.uuid[j] |=  10 + (optarg[i] - 'A');
+                            j++;
+                        } else {
+                            beacon_settings.uuid[j] =  10 + (optarg[i] - 'A');
+                        }
+                        k = !k;
+                    } else if (('a' <= optarg[i]) && ('f' >= optarg[i])) {
+                        if (k) {
+                            beacon_settings.uuid[j] <<= 4;
+                            beacon_settings.uuid[j] |=  10 + (optarg[i] - 'a');
+                            j++;
+                        } else {
+                            beacon_settings.uuid[j] =  10 + (optarg[i] - 'a');
+                        }
+                        k = !k;
+                    } else if ((':' == optarg[i]) || ('-' == optarg[i])) {
+                        continue;
+                    } else {
+                        printf("Wrong UUID format: %s. Please, use XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX:XX or XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/ Exiting ...\n", optarg);
+                        return EXIT_FAILURE;
+                    }
+                }
+                } break;
+
+            /* Help */
+            case 'h': {
+
+                help();
+                return EXIT_FAILURE;
+
+                } break;
+
+            /* Version */
+            case 'v': {
+
+                printf("%s\n", __BTEST_VERSION_STRING);
+                return EXIT_FAILURE;
+
+                } break;
+
+            /* Unknown switch */
+            default: {
+
+                help();
+                return EXIT_FAILURE;
+            }
+        }
+    }
+
+    /* Check wrong args */
+    if (optind < argc) {
+        printf("Bad parameters:");
+        while (optind < argc)
+            printf(" \"%s\"", argv[optind++]);
+        printf("! Exiting ...\n");
+        return EXIT_FAILURE;
+    }
+
+    /* Check major/minor */
+    if (!major_is_set) {
+        printf("Please, set iBeacon major value! Exiting ...\n\n");
+        help();
+        return EXIT_FAILURE;
+    }
+
+    if (!minor_is_set) {
+        printf("Please, set iBeacon minor value! Exiting ...\n\n");
+        help();
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
 
 /* End of file*/
