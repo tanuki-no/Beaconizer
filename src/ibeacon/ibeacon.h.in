@@ -9,17 +9,40 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #ifndef __IBEACON_H__
 #define __IBEACON_H__
 
-#define __IBEACON_DEFAULT_ADVERTISE     @IBEACON_DEFAULT_ADVERTISE@
-#define __IBEACON_DEFAULT_CONN_MODE     @IBEACON_DEFAULT_CONN_MODE@
-#define __IBEACON_DEFAULT_HCI_CTRL      @IBEACON_DEFAULT_HCI_CTRL@
-#define __IBEACON_DEFAULT_MAJOR         @IBEACON_DEFAULT_MAJOR@
-#define __IBEACON_DEFAULT_MINOR         @IBEACON_DEFAULT_MINOR@
-#define __IBEACON_DEFAULT_NAME          "@IBEACON_DEFAULT_NAME@"
-#define __IBEACON_DEFAULT_PASSWORD      "@IBEACON_DEFAULT_PASSWORD@"
-#define __IBEACON_DEFAULT_SERIAL        @IBEACON_DEFAULT_SERIAL@
+#define __IBEACON_NAME                      "@BUILD_NAME@"
+#define __IBEACON_DEFAULT_ADVERTISE         @IBEACON_DEFAULT_ADVERTISE@
+#define __IBEACON_DEFAULT_CONN_MODE         @IBEACON_DEFAULT_CONN_MODE@
+#define __IBEACON_DEFAULT_HCI_CTRL          @IBEACON_DEFAULT_HCI_CTRL@
+#define __IBEACON_DEFAULT_MAJOR             @IBEACON_DEFAULT_MAJOR@
+#define __IBEACON_DEFAULT_MINOR             @IBEACON_DEFAULT_MINOR@
+#define __IBEACON_DEFAULT_MEASURED_POWER    @IBEACON_DEFAULT_MEASURED_POWER@
+#define __IBEACON_DEFAULT_NAME              "@IBEACON_DEFAULT_NAME@"
+#define __IBEACON_DEFAULT_NAME_LENGTH       @IBEACON_DEFAULT_NAME_LENGTH@
+#define __IBEACON_DEFAULT_PASSWORD          "@IBEACON_DEFAULT_PASSWORD@"
+#define __IBEACON_PASSWORD_LENGTH           @IBEACON_PASSWORD_LENGTH@
+#define __IBEACON_DEFAULT_SERIAL            "@IBEACON_DEFAULT_SERIAL@"
+#define __IBEACON_SERIAL_LENGTH             @IBEACON_SERIAL_LENGTH@
+#define __IBEACON_DEFAULT_TX_POWER          @IBEACON_DEFAULT_TX_POWER@
+
+
+typedef struct {
+    uint32_t    advertize;
+    uint16_t    major;
+    uint16_t    minor;
+    float       measured_power;
+    float       tx_power;
+    char        password[@IBEACON_PASSWORD_LENGTH@];
+    char        serial[@IBEACON_SERIAL_LENGTH@];
+    char        name[@IBEACON_DEFAULT_NAME_LENGTH@];
+    uint8_t     uuid[16];
+} ibeacon_t;
+
+
 
 #endif /* __IBEACON_H__ */
 
