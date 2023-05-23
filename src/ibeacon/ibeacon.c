@@ -9,21 +9,11 @@
 #include <sys/socket.h>
 
 #include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
 
 #include "btest/btest.h"
 #include "btest/ibeacon.h"
-
-/*! Help */
-void help();
-
-/*! Load defaults */
-void set_defaults();
-
-/*! Handle command line args */
-int process_command_line(
-    int             argc,
-    char * const    argv[]
-);
 
 /*! Command line args */
 static const struct option ibeacon_long_options[] = {
@@ -42,12 +32,30 @@ static const struct option ibeacon_long_options[] = {
     { }
 };
 
-const char* ibeacon_short_options = "a:c:i:M:m:n:p:s:t:u:vh";
+static const char* ibeacon_short_options = "a:c:i:M:m:n:p:s:t:u:vh";
 
 /* Settings */
-uint16_t    hci_index;          /*! HCI module index */
-uint8_t     mode;               /*! Connection mode */
-ibeacon_t   beacon_settings;    /*! Beacon settings */
+ibeacon_t   ibeacon_settings;    /*! Beacon settings */
+static int hci_desc = -1;
+
+/*! Help */
+static void ib_help();
+
+/*! Load defaults */
+static void ib_set_defaults();
+
+/*! Handle command line args */
+static int ib_process_command_line(
+    int             argc,
+    char * const    argv[]
+);
+
+/* HCI init/open */
+static int ib_open_hci(
+    );
+
+/* Clean up on exit */
+static void ib_clean_up();
 
 /*! Main loop */
 int
@@ -57,37 +65,46 @@ main(int argc, char * const argv[], char * const env[]) {
     int exit_status = EXIT_SUCCESS;
 
     /* Set up deafults */
-    set_defaults();
+    ib_set_defaults();
 
     /* Process command line */
-    if (EXIT_SUCCESS != process_command_line(argc, argv)) {
+    if (EXIT_SUCCESS != ib_process_command_line(argc, argv)) {
         return EXIT_FAILURE;
     }
 
-    /* Start advertising */
-    printf("hci%u: \"%s\" %.2X%.2X%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X/%u:%u (S/N: %c%c%c%c%c, TX %f dBm), adv %u ms ...\n",
-        hci_index,
-        beacon_settings.name,
-        beacon_settings.uuid[0],  beacon_settings.uuid[1],  beacon_settings.uuid[2],  beacon_settings.uuid[3],
-        beacon_settings.uuid[4],  beacon_settings.uuid[5],  beacon_settings.uuid[6],  beacon_settings.uuid[7],
-        beacon_settings.uuid[8],  beacon_settings.uuid[9],  beacon_settings.uuid[10], beacon_settings.uuid[11],
-        beacon_settings.uuid[12], beacon_settings.uuid[13], beacon_settings.uuid[14], beacon_settings.uuid[15],
-        beacon_settings.major,
-        beacon_settings.minor,
-        beacon_settings.serial[0],beacon_settings.serial[1],beacon_settings.serial[2],beacon_settings.serial[3],
-        beacon_settings.serial[4],
-        beacon_settings.tx_power,
-        beacon_settings.advertize);
+    /* Check HCI */
+    int e = ib_open_hci();
+    if (0 == e) {
+        /* Start advertising */
+        printf("hci%u (mode: %d): \"%s\" %.2X%.2X%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X/%u:%u (S/N: %c%c%c%c%c, TX %f dBm), adv %u ms ...\n",
+            ibeacon_settings.hci,
+            (int) ibeacon_settings.mode,
+            ibeacon_settings.name,
+            ibeacon_settings.uuid[0],  ibeacon_settings.uuid[1],  ibeacon_settings.uuid[2],  ibeacon_settings.uuid[3],
+            ibeacon_settings.uuid[4],  ibeacon_settings.uuid[5],  ibeacon_settings.uuid[6],  ibeacon_settings.uuid[7],
+            ibeacon_settings.uuid[8],  ibeacon_settings.uuid[9],  ibeacon_settings.uuid[10], ibeacon_settings.uuid[11],
+            ibeacon_settings.uuid[12], ibeacon_settings.uuid[13], ibeacon_settings.uuid[14], ibeacon_settings.uuid[15],
+            ibeacon_settings.major,
+            ibeacon_settings.minor,
+            ibeacon_settings.serial[0],ibeacon_settings.serial[1],ibeacon_settings.serial[2],ibeacon_settings.serial[3],
+            ibeacon_settings.serial[4],
+            ibeacon_settings.tx_power,
+            ibeacon_settings.advertize);
 
-    /* Done!*/
+        /* Stop */
+        printf("Done!\n");
+    }
+
+    /* Clean up */
     printf("Exiting ...\n");
+    ib_clean_up();
 
     return exit_status;
 }
 
 /*! Description of utility
  */
- void help() {
+ static void ib_help() {
 
     printf(
         "Beacon test suite %s\n"
@@ -127,35 +144,34 @@ main(int argc, char * const argv[], char * const env[]) {
  }
 
 /*! Set defaults */
-void set_defaults() {
-    hci_index                   = __IBEACON_DEFAULT_HCI_CTRL;
-    mode                        = __IBEACON_DEFAULT_CONN_MODE;
-
-    beacon_settings.advertize   = __IBEACON_DEFAULT_ADVERTISE;
-    beacon_settings.major       = __IBEACON_DEFAULT_MAJOR;
-    beacon_settings.minor       = __IBEACON_DEFAULT_MINOR;
-    beacon_settings.measured_power = __IBEACON_DEFAULT_MEASURED_POWER;
-    beacon_settings.tx_power    = __IBEACON_DEFAULT_TX_POWER;
+static void ib_set_defaults() {
+    ibeacon_settings.hci         = __IBEACON_DEFAULT_HCI_CTRL;
+    ibeacon_settings.mode        = __IBEACON_DEFAULT_CONN_MODE;
+    ibeacon_settings.advertize   = __IBEACON_DEFAULT_ADVERTISE;
+    ibeacon_settings.major       = __IBEACON_DEFAULT_MAJOR;
+    ibeacon_settings.minor       = __IBEACON_DEFAULT_MINOR;
+    ibeacon_settings.measured_power = __IBEACON_DEFAULT_MEASURED_POWER;
+    ibeacon_settings.tx_power    = __IBEACON_DEFAULT_TX_POWER;
     strncpy(
-        beacon_settings.name,
+        ibeacon_settings.name,
         __IBEACON_DEFAULT_NAME,
         sizeof(__IBEACON_DEFAULT_NAME));
     strncpy(
-        beacon_settings.password,
+        ibeacon_settings.password,
         __IBEACON_DEFAULT_PASSWORD,
         __IBEACON_PASSWORD_LENGTH);
     strncpy(
-        beacon_settings.serial,
+        ibeacon_settings.serial,
         __IBEACON_DEFAULT_SERIAL,
         __IBEACON_SERIAL_LENGTH);
     getrandom(
-        beacon_settings.uuid,
+        ibeacon_settings.uuid,
         16,
         GRND_RANDOM);
 }
 
 /*! Handle command line args */
-int process_command_line(
+static int ib_process_command_line(
     int             argc,
     char * const    argv[]
 ) {
@@ -187,7 +203,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                beacon_settings.advertize = (uint32_t) c;
+                ibeacon_settings.advertize = (uint32_t) c;
 
             } break;
 
@@ -211,7 +227,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                mode = (uint8_t) c;
+                ibeacon_settings.mode = (uint8_t) c;
 
                 } break;
 
@@ -221,21 +237,21 @@ int process_command_line(
                 errno = 0;
                 c = strtol(optarg, &ep, 0);
                 if ((ERANGE == errno && (LONG_MAX == c || LONG_MIN == c)) || (0 != errno && NULL != ep)) {
-                    perror("Bad bluetooth controller index value: ");
+                    perror("Bad bluetooth HCI controller index value: ");
                     return EXIT_FAILURE;
                 }
 
                 if (0 > c) {
-                    printf("Bluetooth controller index value must be positive! Exiting ...\n");
+                    printf("Bluetooth HCI controller index value must be positive! Exiting ...\n");
                     return EXIT_FAILURE;
                 }
 
                 if (UINT16_MAX < c) {
-                    printf("Bluetooth controller index must be less than %u! Exiting ...\n", UINT16_MAX);
+                    printf("Bluetooth HCI controller index must be less than %u! Exiting ...\n", UINT16_MAX);
                     return EXIT_FAILURE;
                 }
 
-                hci_index = (uint16_t) c;
+                ibeacon_settings.hci = (uint16_t) c;
 
                 } break;
 
@@ -259,7 +275,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                beacon_settings.major = (uint16_t) c;
+                ibeacon_settings.major = (uint16_t) c;
                 major_is_set = 1;
 
                 } break;
@@ -284,7 +300,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
                 
-                beacon_settings.minor = (uint16_t) c;
+                ibeacon_settings.minor = (uint16_t) c;
                 minor_is_set = 1;
 
                 } break;
@@ -300,7 +316,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                strncpy(beacon_settings.name, optarg, __IBEACON_DEFAULT_NAME_LENGTH - 1);
+                strncpy(ibeacon_settings.name, optarg, __IBEACON_DEFAULT_NAME_LENGTH - 1);
 
                 } break;
 
@@ -315,7 +331,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                bcopy(optarg, beacon_settings.password, __IBEACON_PASSWORD_LENGTH);
+                bcopy(optarg, ibeacon_settings.password, __IBEACON_PASSWORD_LENGTH);
 
                 } break;
 
@@ -330,7 +346,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                bcopy(optarg, beacon_settings.serial, __IBEACON_SERIAL_LENGTH);
+                bcopy(optarg, ibeacon_settings.serial, __IBEACON_SERIAL_LENGTH);
 
                 } break;
 
@@ -344,7 +360,7 @@ int process_command_line(
                     return EXIT_FAILURE;
                 }
 
-                beacon_settings.tx_power = d;
+                ibeacon_settings.tx_power = d;
 
                 } break;
 
@@ -355,29 +371,29 @@ int process_command_line(
                 for (size_t i = 0, j = 0, k = 0; (i < l) && (j < 16); ++i) {
                     if (('0' <= optarg[i]) && ('9' >= optarg[i])) {
                         if (k) {
-                            beacon_settings.uuid[j] <<= 4;
-                            beacon_settings.uuid[j] |=  (optarg[i] - '0');
+                            ibeacon_settings.uuid[j] <<= 4;
+                            ibeacon_settings.uuid[j] |=  (optarg[i] - '0');
                             j++;
                         } else {
-                            beacon_settings.uuid[j] =  (optarg[i] - '0');
+                            ibeacon_settings.uuid[j] =  (optarg[i] - '0');
                         }
                         k = !k;
                     } else if (('A' <= optarg[i]) && ('F' >= optarg[i])) {
                         if (k) {
-                            beacon_settings.uuid[j] <<= 4;
-                            beacon_settings.uuid[j] |=  10 + (optarg[i] - 'A');
+                            ibeacon_settings.uuid[j] <<= 4;
+                            ibeacon_settings.uuid[j] |=  10 + (optarg[i] - 'A');
                             j++;
                         } else {
-                            beacon_settings.uuid[j] =  10 + (optarg[i] - 'A');
+                            ibeacon_settings.uuid[j] =  10 + (optarg[i] - 'A');
                         }
                         k = !k;
                     } else if (('a' <= optarg[i]) && ('f' >= optarg[i])) {
                         if (k) {
-                            beacon_settings.uuid[j] <<= 4;
-                            beacon_settings.uuid[j] |=  10 + (optarg[i] - 'a');
+                            ibeacon_settings.uuid[j] <<= 4;
+                            ibeacon_settings.uuid[j] |=  10 + (optarg[i] - 'a');
                             j++;
                         } else {
-                            beacon_settings.uuid[j] =  10 + (optarg[i] - 'a');
+                            ibeacon_settings.uuid[j] =  10 + (optarg[i] - 'a');
                         }
                         k = !k;
                     } else if ((':' == optarg[i]) || ('-' == optarg[i])) {
@@ -392,7 +408,7 @@ int process_command_line(
             /* Help */
             case 'h': {
 
-                help();
+                ib_help();
                 return EXIT_FAILURE;
 
                 } break;
@@ -408,7 +424,7 @@ int process_command_line(
             /* Unknown switch */
             default: {
 
-                help();
+                ib_help();
                 return EXIT_FAILURE;
             }
         }
@@ -426,17 +442,75 @@ int process_command_line(
     /* Check major/minor */
     if (!major_is_set) {
         printf("Please, set iBeacon major value! Exiting ...\n\n");
-        help();
+        ib_help();
         return EXIT_FAILURE;
     }
 
     if (!minor_is_set) {
         printf("Please, set iBeacon minor value! Exiting ...\n\n");
-        help();
+        ib_help();
         return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
+}
+
+/* Open/init HCI */
+static int ib_open_hci(
+    ) {
+
+    int e = EXIT_SUCCESS;
+    struct sockaddr_hci _hci_socket;
+    struct hci_version _hci_version;
+
+    printf("Opening HCI %d ... ", ibeacon_settings.hci);
+
+    /* Check index */
+    if (0 > ibeacon_settings.hci) {
+        printf("wrong HCI index %d. Failed!\n", ibeacon_settings.hci);
+        return EXIT_FAILURE;
+    }
+
+    /* Try to open socket */
+    if (0 > (hci_desc = socket(AF_BLUETOOTH, SOCK_RAW | SOCK_CLOEXEC, BTPROTO_HCI))) {
+        printf("%s. Failed!\n", strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    /* Try to bind socket */
+    memset(&_hci_socket, 0, sizeof(_hci_socket));
+    _hci_socket.hci_family = AF_BLUETOOTH;
+    _hci_socket.hci_dev = ibeacon_settings.hci;
+    if (0 > bind(hci_desc, (struct sockaddr *) &_hci_socket, sizeof(_hci_socket))) {
+        printf("%s. Failed!\n", strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    printf("OK!\n");
+
+    e = hci_read_local_version(ibeacon_settings.hci, &_hci_version, HCIGETDEVINFO);
+    if (0 != e) {
+        printf("Unable to read HCI version: %s.\n", strerror(e));
+        return EXIT_FAILURE;
+    }
+    printf("HCI %d: %d \n",
+        ibeacon_settings.hci,
+        _hci_version.manufacturer);
+
+    return EXIT_SUCCESS;
+}
+
+static void ib_clean_up() {
+
+    int e;
+
+    /* Close HCI anyway */ 
+    printf("Closing HCI %d ... ", ibeacon_settings.hci);
+    e = hci_close_dev(hci_desc);
+    if (0 != e && EBADF == e) {
+        printf("%s. Failed!\n", strerror(e));
+    }
+    printf("OK!\n");
 }
 
 /* End of file*/

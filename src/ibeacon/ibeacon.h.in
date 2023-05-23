@@ -31,15 +31,17 @@
 
 
 typedef struct {
-    uint32_t    advertize;
-    uint16_t    major;
-    uint16_t    minor;
-    float       measured_power;
-    float       tx_power;
-    char        password[@IBEACON_PASSWORD_LENGTH@];
-    char        serial[@IBEACON_SERIAL_LENGTH@];
-    char        name[@IBEACON_DEFAULT_NAME_LENGTH@];
-    uint8_t     uuid[16];
+    uint16_t    hci;                                    /*! HCI module index used for iBeacon */
+    uint8_t     mode;                                   /*! iBeacon connection mode */
+    uint32_t    advertize;                              /*! iBeacon advertize interval */
+    uint16_t    major;                                  /*! iBeacon major */
+    uint16_t    minor;                                  /*! iBeacon minor */
+    float       measured_power;                         /*! iBeacon measured power */
+    float       tx_power;                               /*! iBeacon TX power */
+    char        password[@IBEACON_PASSWORD_LENGTH@];    /*! iBeacon passwpord */
+    char        serial[@IBEACON_SERIAL_LENGTH@];        /*! iBeacon serial */
+    char        name[@IBEACON_DEFAULT_NAME_LENGTH@];    /*! iBeacon name */
+    uint8_t     uuid[16];                               /*! iBeacon UUID */
 } ibeacon_t;
 
 
