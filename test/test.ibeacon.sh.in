@@ -1,0 +1,1 @@
+src/ibeacon/ibeacon -a 1000 -M 6 -m 75 -i 4 -c 2 -p 4532 -s 54321 -t -56.4 --uuid EE53AD10-78C0-F78B-F57F-E719049FFFE0
