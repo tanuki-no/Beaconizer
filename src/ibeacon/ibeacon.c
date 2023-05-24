@@ -17,19 +17,19 @@
 
 /*! Command line args */
 static const struct option ibeacon_long_options[] = {
-    { "advert",     required_argument, NULL, 'a' },
-    { "mode",       required_argument, NULL, 'c' },
-    { "index",      required_argument, NULL, 'i' },
-    { "major",      required_argument, NULL, 'M' },
-    { "minor",      required_argument, NULL, 'm' },
-    { "name",       required_argument, NULL, 'n' },
-    { "password",   required_argument, NULL, 'p' },
-    { "serial",     required_argument, NULL, 's' },
-    { "tx",         required_argument, NULL, 't' },
-    { "uuid",       required_argument, NULL, 'u' },
-    { "version",    no_argument,       NULL, 'v' },
-    { "help",       no_argument,       NULL, 'h' },
-    { }
+    { "advert",     required_argument,  NULL, 'a' },
+    { "mode",       required_argument,  NULL, 'c' },
+    { "index",      required_argument,  NULL, 'i' },
+    { "major",      required_argument,  NULL, 'M' },
+    { "minor",      required_argument,  NULL, 'm' },
+    { "name",       required_argument,  NULL, 'n' },
+    { "password",   required_argument,  NULL, 'p' },
+    { "serial",     required_argument,  NULL, 's' },
+    { "tx",         required_argument,  NULL, 't' },
+    { "uuid",       required_argument,  NULL, 'u' },
+    { "version",    no_argument,        NULL, 'v' },
+    { "help",       no_argument,        NULL, 'h' },
+    { 0,            0,                  NULL, 0 }
 };
 
 static const char* ibeacon_short_options = "a:c:i:M:m:n:p:s:t:u:vh";
@@ -460,42 +460,31 @@ static int ib_open_hci(
     ) {
 
     int e = EXIT_SUCCESS;
-    struct sockaddr_hci _hci_socket;
-    struct hci_version _hci_version;
+    struct hci_dev_info     _hci_dev_info;
+    struct sockaddr_hci     _hci_socket;
+    struct hci_version      _hci_version;
+    char _hci_address[18];
+
+    /* Getting infomration about HCI */
+    if (0 > hci_devinfo(ibeacon_settings.hci, &_hci_dev_info)) {
+        return EXIT_FAILURE;
+    }
+    ba2str(&_hci_dev_info.bdaddr, _hci_address);
+    printf( "%s (%s): flags 0x%.2X, type %u\n",
+        _hci_dev_info.name,
+        _hci_address,
+        _hci_dev_info.flags,
+        _hci_dev_info.type);
 
     printf("Opening HCI %d ... ", ibeacon_settings.hci);
 
     /* Check index */
-    if (0 > ibeacon_settings.hci) {
-        printf("wrong HCI index %d. Failed!\n", ibeacon_settings.hci);
+    hci_desc = hci_open_dev(ibeacon_settings.hci);
+    if (0 > hci_desc) {
+        printf("Failed!\n");
         return EXIT_FAILURE;
     }
-
-    /* Try to open socket */
-    if (0 > (hci_desc = socket(AF_BLUETOOTH, SOCK_RAW | SOCK_CLOEXEC, BTPROTO_HCI))) {
-        printf("%s. Failed!\n", strerror(errno));
-        return EXIT_FAILURE;
-    }
-
-    /* Try to bind socket */
-    memset(&_hci_socket, 0, sizeof(_hci_socket));
-    _hci_socket.hci_family = AF_BLUETOOTH;
-    _hci_socket.hci_dev = ibeacon_settings.hci;
-    if (0 > bind(hci_desc, (struct sockaddr *) &_hci_socket, sizeof(_hci_socket))) {
-        printf("%s. Failed!\n", strerror(errno));
-        return EXIT_FAILURE;
-    }
-
     printf("OK!\n");
-
-    e = hci_read_local_version(ibeacon_settings.hci, &_hci_version, HCIGETDEVINFO);
-    if (0 != e) {
-        printf("Unable to read HCI version: %s.\n", strerror(e));
-        return EXIT_FAILURE;
-    }
-    printf("HCI %d: %d \n",
-        ibeacon_settings.hci,
-        _hci_version.manufacturer);
 
     return EXIT_SUCCESS;
 }
