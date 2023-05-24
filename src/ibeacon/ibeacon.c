@@ -50,6 +50,17 @@ static int ib_process_command_line(
     char * const    argv[]
 );
 
+/* Printers */
+static void ib_print_dev_common(
+    struct hci_dev_info *di,
+    struct hci_version  *ver);
+
+static void ib_print_flags(
+    struct hci_dev_info *di);
+
+static void ib_print_dev_features(
+    struct hci_dev_info *di);
+
 /* HCI init/open */
 static int ib_open_hci(
     );
@@ -90,6 +101,8 @@ main(int argc, char * const argv[], char * const env[]) {
             ibeacon_settings.serial[4],
             ibeacon_settings.tx_power,
             ibeacon_settings.advertize);
+
+
 
         /* Stop */
         printf("Done!\n");
@@ -455,26 +468,107 @@ static int ib_process_command_line(
     return EXIT_SUCCESS;
 }
 
+/* Print device info */
+static void ib_print_dev_common(
+    struct hci_dev_info *di,
+    struct hci_version  *ver)
+{
+    char addr[18];
+    char    *_hci_ver_str = NULL;
+    char    *_hci_lmp_str = NULL;
+
+
+    if (0 > di->dev_id)  
+        return;
+    
+    ba2str(&di->bdaddr, addr);
+    _hci_ver_str = hci_vertostr(ver->hci_ver);
+    if (((di->type & 0x30) >> 4) == HCI_PRIMARY)
+        _hci_lmp_str = lmp_vertostr(ver->lmp_ver);
+    else
+        _hci_lmp_str = pal_vertostr(ver->lmp_ver);
+
+    printf("%s:\tType: %s  Bus: %s\n", di->name,
+        hci_typetostr((di->type & 0x30) >> 4),
+        hci_bustostr(di->type & 0x0f));
+    
+    printf("\tBD Address: %s  ACL MTU: %d:%d  SCO MTU: %d:%d\n",
+        addr, di->acl_mtu, di->acl_pkts,
+        di->sco_mtu, di->sco_pkts);
+
+    printf( "\tHCI Version: %s (0x%x)  Revision: 0x%x\n"
+            "\t%s Version: %s (0x%x)  Subversion: 0x%x\n"
+            "\tManufacturer: %s (%d)\n",
+        NULL == _hci_ver_str ? "n/a" : _hci_ver_str,
+        ver->hci_ver,
+        ver->hci_rev,
+        (((di->type & 0x30) >> 4) == HCI_PRIMARY) ? "LMP" : "PAL",
+        NULL == _hci_lmp_str ? "n/a" : _hci_lmp_str,
+        ver->lmp_ver,
+        ver->lmp_subver,
+        bt_compidtostr(ver->manufacturer),
+        ver->manufacturer);
+
+    /* Clean up */
+    if (_hci_lmp_str)
+        bt_free(_hci_lmp_str);
+
+    if (_hci_ver_str)
+        bt_free(_hci_ver_str);   
+}
+
+static void ib_print_dev_flags(
+    struct hci_dev_info *di) {
+    char *s = hci_dflagstostr(di->flags);
+    printf("\tFlags: %s\n", s);
+    bt_free(s);
+
+    printf("\tRX bytes:%d acl:%d sco:%d events:%d errors:%d\n",
+        di->stat.byte_rx,
+        di->stat.acl_rx,
+        di->stat.sco_rx,
+        di->stat.evt_rx,
+        di->stat.err_rx);
+
+    printf("\tTX bytes:%d acl:%d sco:%d commands:%d errors:%d\n",
+        di->stat.byte_tx,
+        di->stat.acl_tx,
+        di->stat.sco_tx,
+        di->stat.cmd_tx,
+        di->stat.err_tx);
+}
+
+static void ib_print_dev_features(
+    struct hci_dev_info *di) {
+    printf( "\tFeatures: 0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x "
+            "0x%2.2x 0x%2.2x 0x%2.2x 0x%2.2x\n",
+            di->features[0],
+            di->features[1],
+            di->features[2],
+            di->features[3],
+            di->features[4],
+            di->features[5],
+            di->features[6],
+            di->features[7]);
+
+    char *s = lmp_featurestostr(di->features, "\t\t", 63);
+    printf("%s\n", s);
+    bt_free(s);
+}
+
+
 /* Open/init HCI */
 static int ib_open_hci(
     ) {
 
     int e = EXIT_SUCCESS;
     struct hci_dev_info     _hci_dev_info;
-    struct sockaddr_hci     _hci_socket;
     struct hci_version      _hci_version;
-    char _hci_address[18];
 
     /* Getting infomration about HCI */
     if (0 > hci_devinfo(ibeacon_settings.hci, &_hci_dev_info)) {
         return EXIT_FAILURE;
     }
-    ba2str(&_hci_dev_info.bdaddr, _hci_address);
-    printf( "%s (%s): flags 0x%.2X, type %u\n",
-        _hci_dev_info.name,
-        _hci_address,
-        _hci_dev_info.flags,
-        _hci_dev_info.type);
 
     printf("Opening HCI %d ... ", ibeacon_settings.hci);
 
@@ -485,6 +579,20 @@ static int ib_open_hci(
         return EXIT_FAILURE;
     }
     printf("OK!\n");
+
+    /* Get version */
+    if (0 > hci_read_local_version(hci_desc, &_hci_version, 1000)) {
+        return EXIT_FAILURE;
+    }
+
+    /* Dump controller info */
+    printf("\n");
+    ib_print_dev_common(&_hci_dev_info, &_hci_version);
+    ib_print_dev_flags(&_hci_dev_info);
+    if (!hci_test_bit(HCI_RAW, &_hci_dev_info.flags)) {
+        ib_print_dev_features(&_hci_dev_info);
+    }
+    printf("\n");
 
     return EXIT_SUCCESS;
 }
