@@ -1,3 +1,12 @@
+/*!
+ *	\file		ibeacon.c
+ *	\brief		IBeacon logic
+ *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
+ *	\copyright	GNU GPL v3
+ *	\date		25/06/2022
+ *	\version	1.10
+ */
+
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -62,8 +71,7 @@ static void ib_print_dev_features(
     struct hci_dev_info *di);
 
 /* HCI init/open */
-static int ib_open_hci(
-    );
+static int ib_open_hci();
 
 /* Clean up on exit */
 static void ib_clean_up();
@@ -84,8 +92,7 @@ main(int argc, char * const argv[], char * const env[]) {
     }
 
     /* Check HCI */
-    int e = ib_open_hci();
-    if (0 == e) {
+    if (0 == ib_open_hci()) {
         /* Start advertising */
         printf("hci%u (mode: %d): \"%s\" %.2X%.2X%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X-%.2X%.2X%.2X%.2X%.2X%.2X/%u:%u (S/N: %c%c%c%c%c, TX %f dBm), adv %u ms ...\n",
             ibeacon_settings.hci,
@@ -102,7 +109,7 @@ main(int argc, char * const argv[], char * const env[]) {
             ibeacon_settings.tx_power,
             ibeacon_settings.advertize);
 
-
+        /* */
 
         /* Stop */
         printf("Done!\n");
