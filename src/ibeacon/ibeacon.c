@@ -17,12 +17,10 @@
 #include <sys/random.h>
 #include <sys/socket.h>
 
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
-#include <bluetooth/hci_lib.h>
-
 #include "btest/btest.h"
+#include "btest/hci_cmd.h"
 #include "btest/ibeacon.h"
+
 
 /*! Command line args */
 static const struct option ibeacon_long_options[] = {

@@ -1,0 +1,2 @@
+1. Use atomics in critical ops
+2. Simplify watchdog.

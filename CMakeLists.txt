@@ -11,28 +11,56 @@ PROJECT(
 SET ( PROJECT_VERSION_MAJOR	0 )
 SET ( PROJECT_VERSION_MINOR	0 )
 SET ( PROJECT_VERSION_PATCH	2 )
-SET ( PROJECT_VERSION		${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
+SET ( PROJECT_VERSION		    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
+
+SET ( CFG_HCI_LIBRARY_NAME      "hci" )
+SET ( CFG_HCI_LIBRARY_MAJOR     0 )
+SET ( CFG_HCI_LIBRARY_MINOR     0 )
+SET ( CFG_HCI_LIBRARY_PATCH     1 )
+SET ( CFG_HCI_LIBRARY_VERSION   ${CFG_HCI_LIBRARY_MAJOR}.${CFG_HCI_LIBRARY_MINOR}.${CFG_HCI_LIBRARY_PATCH} )
+SET ( CFG_MAX_EPOLL_EVENTS      16 )
+SET ( CFG_MAX_LOOP_ENTRIES      128 )
+SET ( CFG_WATCHDOG_TRG_FREQ     2 )
 
 # Project details
-SET ( ALIAS		"BTest" )
-SET ( AUTHOR		"Vladislav \\\"Tanuki\\\" Mikhailikov" )
-SET ( COPYRIGHT		"GNU GPLv3" )
-SET ( DESCRIPTION	"BLE beacon sample code for Linux, BlueZ and C" )
+SET ( ALIAS             "BTest" )
+SET ( AUTHOR            "Vladislav \\\"Tanuki\\\" Mikhailikov" )
+SET ( COPYRIGHT         "GNU GPLv3" )
+SET ( DESCRIPTION       "BLE beacon sample code for Linux and C" )
 
 # Service setup
 STRING ( TIMESTAMP TODAY "%d/%m/%Y" )
 STRING(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" is_top_level)
 
+# Check compiler and features
+IF ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+  MESSAGE("Clang")
+ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  MESSAGE("GNU")
+ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+  MESSAGE("Intel")
+ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  MESSAGE("MSVC")
+ENDIF()
+
 # Detect required functions and libraries
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "errno.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "limits.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "signal.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "stdio.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "stdlib.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "stddef.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "string.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "unistd.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "getopt.h")
+
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/epoll.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/ioctl.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/random.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/signalfd.h")
 LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/socket.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/timerfd.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/random.h")
+LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/un.h")
 
 INCLUDE (CheckIncludeFiles)
 CHECK_INCLUDE_FILES (
@@ -43,23 +71,57 @@ IF (NOT REQUIRED_HEADERS_FOUND)
     MESSAGE ( FATAL_ERROR "Required headers absent!" )
 ENDIF ()
 
-INCLUDE ( ${CMAKE_SOURCE_DIR}/cmake/FindBlueZ.cmake )
-IF (NOT BLUETOOTH_FOUND )
-    MESSAGE ( FATAL_ERROR "BlueZ library and headers not found!" )
-ELSE()
-    MESSAGE ( STATUS "BlueZ library found!" )
-ENDIF ()
-
-# Preset common libraries for the project
-LINK_LIBRARIES( ${BLUETOOTH_LIBRARY} )
-
 # Add GNU install dirs
 INCLUDE ( GNUInstallDirs )
 
-# Add includes
-ADD_SUBDIRECTORY (include)
+# HCI_SHARED_LIBS determines static/shared build when defined
+OPTION ( HCI_BUILD_TESTS    "Build HCI library tests" OFF )
+OPTION ( HCI_BUILD_EXAMPLES "Build HCI examples"      OFF )
+
+IF ( DEFINED HCI_SHARED_LIBS )
+    SET ( BUILD_SHARED_LIBS ${HCI_SHARED_LIBS} )
+ENDIF ()
+
+# Build HCI library
+
+# Conflugure
+CONFIGURE_FILE (
+  "${CMAKE_SOURCE_DIR}/include/btest/hci_config.h.in"
+  "${CMAKE_BINARY_DIR}/include/btest/hci_config.h"
+  NEWLINE_STYLE UNIX )
+
+# Set includes path
+INCLUDE_DIRECTORIES (
+    ${CMAKE_BINARY_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include
+    )
 
 # Add sources
-ADD_SUBDIRECTORY (src)
+LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/loop.c" )
+LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
+
+# Set up build
+IF ( BUILD_SHARED_LIBS )
+
+    ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} STATIC ${SOURCES} )
+
+ELSE ()
+
+    ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} SHARED ${SOURCES} )
+
+    SET_TARGET_PROPERTIES (
+        ${CFG_HCI_LIBRARY_NAME}     PROPERTIES
+        SOVERSION               ${CFG_HCI_LIBRARY_MAJOR}
+        VERSION                 ${CFG_HCI_LIBRARY_VERSION}
+        )
+
+ENDIF ()
+ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME}::${CFG_HCI_LIBRARY_NAME} ALIAS ${CFG_HCI_LIBRARY_NAME} )
+
+# Add includes
+ADD_SUBDIRECTORY ( include )
+
+# Add sources
+ADD_SUBDIRECTORY ( src )
 
 # End of file

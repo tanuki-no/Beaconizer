@@ -4,7 +4,7 @@
 ENABLE_LANGUAGE ( C )
 
 # Set up defaults
-SET ( BUILD_NAME	"ibeacon" )
+SET ( IBEACON_NAME	                  "ibeacon" )
 SET ( IBEACON_DEFAULT_ADVERTISE       1000 )
 SET ( IBEACON_DEFAULT_CONN_MODE       0 )
 SET ( IBEACON_DEFAULT_HCI_CTRL        0 )
@@ -27,12 +27,17 @@ CONFIGURE_FILE (
 # Set includes path
 INCLUDE_DIRECTORIES (
     ${CMAKE_BINARY_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include
     )
 
 # Add sources
 LIST (APPEND SOURCES "ibeacon.c")
 
 # Set up build
-ADD_EXECUTABLE ( "${BUILD_NAME}"	${SOURCES} )
+ADD_EXECUTABLE ( "${IBEACON_NAME}"	${SOURCES} )
+
+# Add libraries to link with
+# TARGET_LINK_LIBRARIES("${IBEACON_NAME}" PRIVATE ${HCI_LIBRARY_NAME}::${HCI_LIBRARY_NAME})
+
 
 # End of file
