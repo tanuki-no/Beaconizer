@@ -84,12 +84,6 @@ ENDIF ()
 
 # Build HCI library
 
-# Conflugure
-CONFIGURE_FILE (
-  "${CMAKE_SOURCE_DIR}/include/btest/hci_config.h.in"
-  "${CMAKE_BINARY_DIR}/include/btest/hci_config.h"
-  NEWLINE_STYLE UNIX )
-
 # Set includes path
 INCLUDE_DIRECTORIES (
     ${CMAKE_BINARY_DIR}/include
@@ -98,6 +92,8 @@ INCLUDE_DIRECTORIES (
 
 # Add sources
 LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/loop.c" )
+LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/timeout.c" )
+LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/utility.c" )
 LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
 
 # Set up build

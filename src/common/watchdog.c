@@ -1,6 +1,6 @@
 /*!
- *	\file		loop-notify.c
- *	\brief		Simple event loop using signal related part
+ *	\file		watchdog.c
+ *	\brief		Watchdog stuff
  *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
  *	\copyright	GNU GPL v3
  *	\date		25/06/2022
@@ -21,31 +21,35 @@
 #include <sys/un.h>
 
 #include "btest/hci_config.h"
+#include "btest/io.h"
 #include "btest/loop.h"
+#include "btest/timeout.h"
+#include "btest/watchdog.h"
+#include "btest/utility.h"
 
 
 /* Watchdog stuff */
-static int notify_fd = -1;
-static unsigned int watchdog;
+static int __s_notify_fd = -1;
+static unsigned int __s_watchdog = -1;
 
 /* Callback */
-struct signal_data {
+typedef struct {
     struct io           *io;
     loop_signal_fn_t    func;
     void                *user_data;
-};
+} signal_data_t;
 
-static struct signal_data *signal_data;
+static signal_data_t *signal_data;
 
-static int watchdog_callback(void *user_data)
-{
+static int watchdog_callback(
+    void            *user_data) {
     loop_sd_notify("WATCHDOG=1");
-    return int;
+    return 1;
 }
 
 /* Initialize watchdog */
-void loop_watchdog_init(void)
-{
+void loop_watchdog_init(void) {
+
     const char *sock = NULL;
     struct sockaddr_un addr;
     const char *watchdog_usec = NULL;
@@ -59,8 +63,8 @@ void loop_watchdog_init(void)
     if ('@' != sock[0] && '/' != sock[0])
         return;
 
-    notify_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-    if (0 > notify_fd)
+    __s_notify_fd = socket(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    if (0 > __s_notify_fd)
         return;
 
     memset(&addr, 0, sizeof(addr));
@@ -70,9 +74,9 @@ void loop_watchdog_init(void)
     if ('@' == addr.sun_path[0])
         addr.sun_path[0] = '\0';
 
-    if (connect(notify_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
-        close(notify_fd);
-        notify_fd = -1;
+    if (connect(__s_notify_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+        close(__s_notify_fd);
+        __s_notify_fd = -1;
         return;
     }
 
@@ -84,13 +88,116 @@ void loop_watchdog_init(void)
     if (msec < 0)
         return;
 
-    watchdog = timeout_add(
+    __s_watchdog = timeout_add(
         msec / __WATCHDOG_TRIGGER_FREQ,
         watchdog_callback,
         NULL,
         NULL);
 }
 
+/* Destroy watchdog in a loop */
+void loop_notify_exit(void) {
 
+    if (0 < __s_notify_fd) {
+        close(__s_notify_fd);
+        __s_notify_fd = -1;
+    }
+
+    timeout_remove(__s_watchdog);
+}
+
+/* Trigger watchdog */
+int loop_sd_notify(
+    const char      *state) {
+
+    int err;
+
+    if (1 > __s_notify_fd)
+        return -ENOTCONN;
+
+    err = send(__s_notify_fd, state, strlen(state), MSG_NOSIGNAL);
+    if (err < 0)
+        return -errno;
+
+    return err;
+}
+
+static int signal_read(
+    struct io       *io,
+    void            *user_data) {
+
+    signal_data_t *data = user_data;
+    struct signalfd_siginfo si;
+    ssize_t result;
+    int fd;
+
+    fd = io_get_fd(io);
+
+    result = read(fd, &si, sizeof(si));
+    if (sizeof(si) != result)
+        return 0;
+
+    if (data && data->func)
+        data->func(si.ssi_signo, data->user_data);
+
+    return 1;
+}
+
+static struct io *setup_signalfd(
+    void            *user_data) {
+
+    struct io *io;
+    sigset_t mask;
+    int fd;
+
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGUSR2);
+    sigaddset(&mask, SIGCHLD);
+
+    if (0 > sigprocmask(SIG_BLOCK, &mask, NULL))
+        return NULL;
+
+    fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
+    if (0 > fd )
+        return NULL;
+
+    io = io_new(fd);
+
+    io_set_close_on_destroy(io, 1);
+    io_set_read_handler(io, signal_read, user_data, free);
+
+    return io;
+}
+
+int loop_run_with_signal(
+    loop_signal_fn_t    func,
+    void               *user_data) {
+
+    signal_data_t *data = NULL;
+    struct io *io = NULL;
+    int ret = -1;
+
+    if (NULL == func)
+        return -EINVAL;
+
+    data = new0(signal_data_t, 1);
+    data->func = func;
+    data->user_data = user_data;
+
+    io = setup_signalfd(data);
+    if (!io) {
+        free(data);
+        return -errno;
+    }
+
+    ret = loop_run();
+
+    io_destroy(io);
+    free(signal_data);
+
+    return ret;
+}
 
  /* End of file */

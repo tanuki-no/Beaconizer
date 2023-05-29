@@ -12,6 +12,11 @@
 #ifndef __BTEST_WATCHDOG_H__
 #define __BTEST_WATCHDOG_H__
 
+/* User function used to process signal in a loop */
+typedef void (*loop_signal_fn_t) (
+    int         signum,
+    void        *user_data);
+
 /* Initialize watchdog in a loop */
 void loop_watchdog_init(void);
 
@@ -28,6 +33,11 @@ int loop_set_signal(
 /* Trigger watchdog */
 int loop_sd_notify(
     const char *state);
+
+/* Run loop with signal processing */
+int loop_run_with_signal(
+    loop_signal_fn_t    func,
+    void                *user_data);
 
 #endif /* __BTEST_WATCHDOG_H__ */
 
