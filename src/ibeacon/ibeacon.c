@@ -17,9 +17,9 @@
 #include <sys/random.h>
 #include <sys/socket.h>
 
-#include "btest/btest.h"
-#include "btest/hci_cmd.h"
-#include "btest/ibeacon.h"
+#include "beaconizer/btest.h"
+#include "beaconizer/hci_cmd.h"
+#include "beaconizer/ibeacon.h"
 
 
 /*! Command line args */

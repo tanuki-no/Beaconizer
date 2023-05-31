@@ -4,13 +4,13 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.20)
 
 PROJECT(
-    btest
+    beaconizer
     LANGUAGES		C)
 
 # Project version
 SET ( PROJECT_VERSION_MAJOR	0 )
 SET ( PROJECT_VERSION_MINOR	0 )
-SET ( PROJECT_VERSION_PATCH	2 )
+SET ( PROJECT_VERSION_PATCH	3 )
 SET ( PROJECT_VERSION		    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
 
 SET ( CFG_HCI_LIBRARY_NAME      "hci" )
@@ -23,7 +23,7 @@ SET ( CFG_MAX_LOOP_ENTRIES      128 )
 SET ( CFG_WATCHDOG_TRG_FREQ     2 )
 
 # Project details
-SET ( ALIAS             "BTest" )
+SET ( ALIAS             "Beaconizer" )
 SET ( AUTHOR            "Vladislav \\\"Tanuki\\\" Mikhailikov" )
 SET ( COPYRIGHT         "GNU GPLv3" )
 SET ( DESCRIPTION       "BLE beacon sample code for Linux and C" )
@@ -91,6 +91,8 @@ INCLUDE_DIRECTORIES (
     )
 
 # Add sources
+LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/db.c" )
+LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/io.c" )
 LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/loop.c" )
 LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/timeout.c" )
 LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/utility.c" )

@@ -20,12 +20,12 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "btest/hci_config.h"
-#include "btest/io.h"
-#include "btest/loop.h"
-#include "btest/timeout.h"
-#include "btest/watchdog.h"
-#include "btest/utility.h"
+#include "beaconizer/hci_config.h"
+#include "beaconizer/io.h"
+#include "beaconizer/loop.h"
+#include "beaconizer/timeout.h"
+#include "beaconizer/watchdog.h"
+#include "beaconizer/utility.h"
 
 
 /* Watchdog stuff */

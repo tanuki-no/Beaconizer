@@ -21,9 +21,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "btest/hci_config.h"
-#include "btest/loop.h"
-#include "btest/watchdog.h"
+#include "beaconizer/hci_config.h"
+#include "beaconizer/loop.h"
+#include "beaconizer/watchdog.h"
 
 
 /* Epoll stuff */

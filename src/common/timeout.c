@@ -11,9 +11,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "btest/loop.h"
-#include "btest/timeout.h"
-#include "btest/utility.h"
+#include "beaconizer/loop.h"
+#include "beaconizer/timeout.h"
+#include "beaconizer/utility.h"
 
 
 typedef struct {

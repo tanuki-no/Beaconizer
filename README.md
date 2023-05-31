@@ -1,4 +1,4 @@
-# BTest
+# Beaconizer
 Various BLE beacons sample implementations using Linux and C language. To build the tests you need
 Linux with bluetooth adapter (BT/BLE 4.0 or higher), C compiler and CMake utility.
 

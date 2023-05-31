@@ -113,6 +113,10 @@ unsigned char util_get_dt(const char *parent, const char *name);
 uint8_t util_get_uid(uint64_t *bitmap, uint8_t max);
 void util_clear_uid(uint64_t *bitmap, uint8_t id);
 
+/* String utilities */
+char *strdelimit(char *str, char *del, char c);
+int strsuffix(const char *str, const char *suffix);
+
 #endif /* __BTEST_UTILITY_H__ */
 
 /* End of file */
