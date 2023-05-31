@@ -7,7 +7,13 @@
  *	\version	1.0
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <byteswap.h>
+#include <ctype.h>
+#include <limits.h>
+#include <dirent.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -185,6 +191,128 @@ void *util_memdup(
     memcpy(cpy, src, size);
 
     return cpy;
+}
+
+/* Debug utilities */
+void util_debug_va(
+    util_debug_fn_t     function,
+    void               *user_data,
+    const char         *format,
+    va_list             va) {
+
+    char str[MAX_INPUT];
+
+    if (!function || !format)
+        return;
+
+    vsnprintf(str, sizeof(str), format, va);
+
+    function(str, user_data);
+}
+
+void util_debug(
+    util_debug_fn_t     function,
+    void               *user_data,
+    const char         *format, ...) {
+
+    va_list ap;
+
+    if (!function || !format)
+        return;
+
+    va_start(ap, format);
+    util_debug_va(function, user_data, format, ap);
+    va_end(ap);
+}
+
+void util_hexdump(
+    const char          dir,
+    const unsigned char *buf,
+    size_t              len,
+    util_debug_fn_t     function,
+    void               *user_data) {
+
+    static const char hexdigits[] = "0123456789abcdef";
+    char str[68];
+    size_t i;
+
+    if (!function || !len)
+        return;
+
+    str[0] = dir;
+
+    for (i = 0; i < len; i++) {
+        str[((i % 16) * 3) + 1] = ' ';
+        str[((i % 16) * 3) + 2] = hexdigits[buf[i] >> 4];
+        str[((i % 16) * 3) + 3] = hexdigits[buf[i] & 0xf];
+        str[(i % 16) + 51] = isprint(buf[i]) ? buf[i] : '.';
+
+        if ((i + 1) % 16 == 0) {
+            str[49] = ' ';
+            str[50] = ' ';
+            str[67] = '\0';
+            function(str, user_data);
+            str[0] = ' ';
+        }
+    }
+
+    if (i % 16 > 0) {
+        size_t j;
+        for (j = (i % 16); j < 16; j++) {
+            str[(j * 3) + 1] = ' ';
+            str[(j * 3) + 2] = ' ';
+            str[(j * 3) + 3] = ' ';
+            str[j + 51] = ' ';
+        }
+
+        str[49] = ' ';
+        str[50] = ' ';
+        str[67] = '\0';
+        function(str, user_data);
+    }
+}
+
+/* Helper for getting the dirent type in case readdir returns DT_UNKNOWN */
+unsigned char util_get_dt(
+    const char         *parent,
+    const char         *name) {
+
+    char filename[PATH_MAX];
+    struct stat st;
+
+    snprintf(filename, PATH_MAX, "%s/%s", parent, name);
+    if (lstat(filename, &st) == 0 && S_ISDIR(st.st_mode))
+        return DT_DIR;
+
+    return DT_UNKNOWN;
+}
+
+/* Find unique id in range from 1 to max but no bigger than 64. */
+uint8_t util_get_uid(
+    uint64_t           *bitmap,
+    uint8_t             max) {
+
+    uint8_t id;
+
+    id = ffsll(~*bitmap);
+
+    if (!id || id > max)
+        return 0;
+
+    *bitmap |= ((uint64_t)1) << (id - 1);
+
+    return id;
+}
+
+/* Clear id bit in bitmap */
+void util_clear_uid(
+    uint64_t           *bitmap,
+    uint8_t             id) {
+
+    if (!id || id > 64)
+        return;
+
+    *bitmap &= ~(((uint64_t)1) << (id - 1));
 }
 
 /* String utilities */

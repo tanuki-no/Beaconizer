@@ -53,12 +53,6 @@ do {                                            \
 #define malloc0(n) (calloc((n), 1))
 
 /* Byte converter utilities */
-const char *bt_uuid16_to_str(uint16_t uuid);
-const char *bt_uuid32_to_str(uint32_t uuid);
-const char *bt_uuid128_to_str(const uint8_t uuid[16]);
-const char *bt_uuidstr_to_str(const char *uuid);
-const char *bt_appear_to_str(uint16_t appearance);
-
 int8_t      get_s8(const void *ptr);
 uint8_t     get_u8(const void *ptr);
 
@@ -90,26 +84,32 @@ void put_be64(uint64_t val, void *dst);
 void *util_malloc(size_t size);
 void *util_memdup(const void *src, size_t size);
 
-/* String utilities */
-char *strdelimit(char *str, char *del, char c);
-int strsuffix(const char *str, const char *suffix);
+/* Debug utilities */
+typedef void (*util_debug_fn_t)(const char *str, void *user_data);
 
-typedef void (*util_debug_func_t)(const char *str, void *user_data);
+void util_debug_va(
+    util_debug_fn_t     function,
+    void               *user_data,
+    const char         *format,
+    va_list             va);
 
-void util_debug_va(util_debug_func_t function, void *user_data,
-                                const char *format, va_list va);
+void util_debug(
+    util_debug_fn_t     function,
+    void               *user_data,
+    const char         *format, ...)
+    __attribute__((format(printf, 3, 4)));
 
-void util_debug(util_debug_func_t function, void *user_data,
-                                                const char *format, ...)
-                                        __attribute__((format(printf, 3, 4)));
+void util_hexdump(
+    const char          dir,
+    const unsigned char *buf,
+    size_t              len,
+    util_debug_fn_t     function,
+    void               *user_data);
 
-void util_hexdump(const char dir, const unsigned char *buf, size_t len,
-                                util_debug_func_t function, void *user_data);
-
+/* Helper for getting the dirent type in case readdir returns DT_UNKNOWN */
 unsigned char util_get_dt(const char *parent, const char *name);
 
-ssize_t util_getrandom(void *buf, size_t buflen, unsigned int flags);
-
+/* Helpers for bitfield operations */
 uint8_t util_get_uid(uint64_t *bitmap, uint8_t max);
 void util_clear_uid(uint64_t *bitmap, uint8_t id);
 
