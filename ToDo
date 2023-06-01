@@ -1,2 +1,18 @@
-1. Use atomics in critical ops
-2. Simplify watchdog.
+# Things to be done
+
+Here I wrote some points that is found but not solved during development due the lack of time. This is not an issue
+but the possible improvement or enhancement in later versions.
+
+## Library
+
+### Bluetooth database (db.h/db.c)
+* Consider better database organization using hashmap or similar solution
+* Find the way to autogenerate the UUID databases from approved specifications and manufacturers data
+
+### Loop (loop.h/loop.c)
+* Use atomics in critical ops
+
+### Watchdog
+* Simplify watchdog.
+
+Later, TBD moving into issues to be solved as usual.
