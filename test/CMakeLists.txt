@@ -2,30 +2,32 @@
 
 # Tests
 # -----------------------------------------------------------------
-LIST ( APPEND TEST   "db00" )
+list ( APPEND TEST   "db00" )
+list ( APPEND TEST   "db01" )
+list ( APPEND TEST   "db02" )
 
 # Library test
 # -----------------------------------------------------------------
-FOREACH ( T ${TEST} )
+foreach ( T ${TEST} )
 
-  ADD_EXECUTABLE                ( "${T}" "${T}.c" )
+  add_executable                ( "${T}" "${T}.c" )
 
-  SET_TARGET_PROPERTIES (
+  set_target_properties (
     ${T}                        PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY    "${CMAKE_BINARY_DIR}/test"
     LIBRARY_OUTPUT_DIRECTORY    "${CMAKE_BINARY_DIR}/test"
     RUNTIME_OUTPUT_DIRECTORY    "${CMAKE_BINARY_DIR}/test"
     )
 
-  ADD_DEPENDENCIES      ( "${T}" ${CFG_HCI_LIBRARY_NAME}		)
-  TARGET_LINK_LIBRARIES ( "${T}" ${CFG_HCI_LIBRARY_NAME}		)
+  add_dependencies      ( "${T}" ${CFG_HCI_LIBRARY_NAME}		)
+  target_link_libraries ( "${T}" ${CFG_HCI_LIBRARY_NAME}		)
 
-  ADD_TEST(
-    NAME              "${T}"
+  add_test(
+    name              "${T}"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test"
-    COMMAND           "${T}"
+    command           "${T}"
   )
 
-ENDFOREACH ()
+endforeach ()
 
 # End of file

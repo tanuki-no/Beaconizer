@@ -981,7 +981,7 @@ static const struct {
 };
 
 /* Convert 16-bit characteristic to string */
-const char *bt_uuid16_to_str(
+const char *uuid2str16(
     const uint16_t uuid) {
 
     int i;
@@ -995,17 +995,17 @@ const char *bt_uuid16_to_str(
 }
 
 /* Convert 32-bit characteristic to string */
-const char *bt_uuid32_to_str(
+const char *uuid2str32(
     const uint32_t uuid) {
 
     if (0x0000 == (uuid & 0xffff0000))
-        return bt_uuid16_to_str(uuid & 0x0000ffff);
+        return uuid2str16(uuid & 0x0000ffff);
 
     return "Unknown";
 }
 
 /* Convert UUID to string */
-const char *bt_uuid128_to_str(
+const char *uuid2str128(
     const uint8_t uuid[16]) {
 
     char uuidstr[37];
@@ -1031,7 +1031,7 @@ const char *bt_uuidstr_to_str(
 
     len = strlen(uuid);
 
-    if (len < 36) {
+    if (len < 37) {
 
         char *endptr = NULL;
 
@@ -1040,9 +1040,9 @@ const char *bt_uuidstr_to_str(
             return NULL;
 
         if (val > UINT16_MAX)
-            return bt_uuid32_to_str(val);
+            return uuid2str32(val);
 
-        return bt_uuid16_to_str(val);
+        return uuid2str16(val);
     }
 
     if (len != 36)
@@ -1059,7 +1059,7 @@ const char *bt_uuidstr_to_str(
     if (1 != sscanf(uuid, "%08x-0000-1000-8000-00805f9b34fb", &val))
         return NULL;
 
-    return bt_uuid32_to_str(val);
+    return uuid2str32(val);
 }
 
 static const struct {

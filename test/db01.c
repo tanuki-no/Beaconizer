@@ -1,12 +1,13 @@
 /*!
- *	\file		db00.c
- *	\brief		Check 16-bit to string translation
+ *	\file		db01.c
+ *	\brief		Check 32-bit to string translation
  *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
  *	\copyright	GNU GPL v3
  *	\date		28/06/2022
  *	\version	1.0
  */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -15,15 +16,15 @@
 int
 main() {
 
-    int i;
+    uint64_t i;
 
-    printf("Checking bt_uuid16_to_str() ...\n");
+    printf("Checking bt_uuid32_to_str() ...\n");
     printf("-------------------------------------\n");
 
     for (i = 0; UINT16_MAX > i; ++i) {
-        const char* s = uuid2str16(i & 0xFFFF);
+        const char* s = uuid2str32(i & 0xFFFFFFFF);
         if (NULL != s && 0 != strcmp(s, "Unknown")) {
-            printf("16-bit UUID: 0x%0.4X, %s\n", i & 0xFFFF, s);
+            printf("32-bit UUID: 0x%0.8X, %s\n", (uint32_t) (i & 0xFFFFFFFF), s);
         }
     }
     printf("-------------------------------------\n");

@@ -1,132 +1,132 @@
 # BTest CMake code generation script
 #
 # ----------------------------------
-CMAKE_MINIMUM_REQUIRED(VERSION 3.20)
+cmake_minimum_required(VERSION 3.20)
 
-PROJECT(
+project(
     beaconizer
     LANGUAGES		C)
 
 # Project version
-SET ( PROJECT_VERSION_MAJOR	0 )
-SET ( PROJECT_VERSION_MINOR	0 )
-SET ( PROJECT_VERSION_PATCH	3 )
-SET ( PROJECT_VERSION		    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
+set ( PROJECT_VERSION_MAJOR	0 )
+set ( PROJECT_VERSION_MINOR	0 )
+set ( PROJECT_VERSION_PATCH	3 )
+set ( PROJECT_VERSION		    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
 
-SET ( CFG_HCI_LIBRARY_NAME      "hci" )
-SET ( CFG_HCI_LIBRARY_MAJOR     0 )
-SET ( CFG_HCI_LIBRARY_MINOR     0 )
-SET ( CFG_HCI_LIBRARY_PATCH     2 )
-SET ( CFG_HCI_LIBRARY_VERSION   ${CFG_HCI_LIBRARY_MAJOR}.${CFG_HCI_LIBRARY_MINOR}.${CFG_HCI_LIBRARY_PATCH} )
-SET ( CFG_MAX_EPOLL_EVENTS      16 )
-SET ( CFG_MAX_LOOP_ENTRIES      128 )
-SET ( CFG_WATCHDOG_TRG_FREQ     2 )
+set ( CFG_HCI_LIBRARY_NAME      "hci" )
+set ( CFG_HCI_LIBRARY_MAJOR     0 )
+set ( CFG_HCI_LIBRARY_MINOR     0 )
+set ( CFG_HCI_LIBRARY_PATCH     2 )
+set ( CFG_HCI_LIBRARY_VERSION   ${CFG_HCI_LIBRARY_MAJOR}.${CFG_HCI_LIBRARY_MINOR}.${CFG_HCI_LIBRARY_PATCH} )
+set ( CFG_MAX_EPOLL_EVENTS      16 )
+set ( CFG_MAX_LOOP_ENTRIES      128 )
+set ( CFG_WATCHDOG_TRG_FREQ     2 )
 
 # Project details
-SET ( ALIAS             "Beaconizer" )
-SET ( AUTHOR            "Vladislav \\\"Tanuki\\\" Mikhailikov" )
-SET ( COPYRIGHT         "GNU GPLv3" )
-SET ( DESCRIPTION       "BLE beacon sample code for Linux and C" )
+set ( ALIAS             "Beaconizer" )
+set ( AUTHOR            "Vladislav \\\"Tanuki\\\" Mikhailikov" )
+set ( COPYRIGHT         "GNU GPLv3" )
+set ( DESCRIPTION       "BLE beacon sample code for Linux and C" )
 
 # Service setup
-STRING ( TIMESTAMP TODAY "%d/%m/%Y" )
-STRING(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" is_top_level)
+string ( TIMESTAMP TODAY "%d/%m/%Y" )
+string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}" is_top_level)
 
 # Check compiler and features
-IF ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  MESSAGE("Clang")
-ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-  MESSAGE("GNU")
-ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-  MESSAGE("Intel")
-ELSEIF ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-  MESSAGE("MSVC")
-ENDIF()
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
+  message("Clang")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  message("GNU")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
+  message("Intel")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  message("MSVC")
+endif()
 
 # Detect required functions and libraries
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "errno.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "limits.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "signal.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "stdio.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "stdlib.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "stddef.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "string.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "unistd.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "getopt.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "errno.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "limits.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "signal.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "stdio.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "stdlib.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "stddef.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "string.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "unistd.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "getopt.h")
 
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/epoll.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/ioctl.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/signalfd.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/socket.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/timerfd.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/random.h")
-LIST (APPEND HEADER_FILES_TO_CHECK_LIST "sys/un.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/epoll.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/ioctl.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/signalfd.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/socket.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/timerfd.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/random.h")
+list (APPEND HEADER_FILES_TO_CHECK_LIST "sys/un.h")
 
-INCLUDE (CheckIncludeFiles)
+include (CheckIncludeFiles)
 CHECK_INCLUDE_FILES (
     "${HEADER_FILES_TO_CHECK_LIST}" REQUIRED_HEADERS_FOUND LANGUAGE C
 )
 
-IF (NOT REQUIRED_HEADERS_FOUND)
-  MESSAGE ( FATAL_ERROR "Required headers absent!" )
-ENDIF ()
+if (NOT REQUIRED_HEADERS_FOUND)
+  message ( FATAL_ERROR "Required headers absent!" )
+endif ()
 
 # Add GNU install dirs
-INCLUDE ( GNUInstallDirs )
+include ( GNUInstallDirs )
 
 # HCI_SHARED_LIBS determines static/shared build when defined
-OPTION ( HCI_BUILD_TESTS    "Build HCI library tests" OFF )
-OPTION ( HCI_BUILD_EXAMPLES "Build HCI examples"      OFF )
+option ( HCI_BUILD_TESTS    "Build HCI library tests" off )
+option ( HCI_BUILD_EXAMPLES "Build HCI examples"      off )
 
-IF ( DEFINED HCI_SHARED_LIBS )
-  SET ( BUILD_SHARED_LIBS ${HCI_SHARED_LIBS} )
-ENDIF ()
+if ( DEFINED HCI_SHARED_LIBS )
+  set ( BUILD_SHARED_LIBS ${HCI_SHARED_LIBS} )
+endif ()
 
 # Build HCI library
 
 # Set includes path
-INCLUDE_DIRECTORIES (
+include_directories (
   ${CMAKE_BINARY_DIR}/include
   ${CMAKE_SOURCE_DIR}/include
   )
 
 # Add sources
-LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/db.c" )
-LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/io.c" )
-LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/loop.c" )
-LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/timeout.c" )
-LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/utility.c" )
-LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/db.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/io.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/loop.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/timeout.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/utility.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
 
 # Set up build
-IF ( BUILD_SHARED_LIBS )
+if ( BUILD_SHARED_LIBS )
 
-  ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} STATIC ${SOURCES} )
+  add_library ( ${CFG_HCI_LIBRARY_NAME} STATIC ${SOURCES} )
 
-ELSE ()
+else ()
 
-  ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} SHARED ${SOURCES} )
+  add_library ( ${CFG_HCI_LIBRARY_NAME} SHARED ${SOURCES} )
 
-  SET_TARGET_PROPERTIES (
+  set_target_properties (
     ${CFG_HCI_LIBRARY_NAME}     PROPERTIES
     SOVERSION               ${CFG_HCI_LIBRARY_MAJOR}
     VERSION                 ${CFG_HCI_LIBRARY_VERSION}
   )
 
-ENDIF ()
-ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME}::${CFG_HCI_LIBRARY_NAME} ALIAS ${CFG_HCI_LIBRARY_NAME} )
+endif ()
+add_library ( ${CFG_HCI_LIBRARY_NAME}::${CFG_HCI_LIBRARY_NAME} ALIAS ${CFG_HCI_LIBRARY_NAME} )
 
 # Add includes
-ADD_SUBDIRECTORY ( include )
+add_subdirectory ( include )
 
 # Add sources
-ADD_SUBDIRECTORY ( src )
+add_subdirectory ( src )
 
 # Tests
-IF (BUILD_TESTS)
-  ENABLE_TESTING()
-  INCLUDE (CTest)
-  ADD_SUBDIRECTORY ( test )
-ENDIF ()
+if (BUILD_TESTS)
+  enable_testing()
+  include (CTest)
+  add_subdirectory ( test )
+endif ()
 
 # End of file

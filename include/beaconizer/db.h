@@ -15,13 +15,13 @@
 #define __BTEST_DB_H__
 
 /* Convert 16-bit characteristic to string */
-const char *bt_uuid16_to_str(const uint16_t uuid);
+const char *uuid2str16(const uint16_t uuid);
 
 /* Convert 32-bit characteristic to string */
-const char *bt_uuid32_to_str(const uint32_t uuid);
+const char *uuid2str32(const uint32_t uuid);
 
 /* Convert UUID to string */
-const char *bt_uuid128_to_str(const uint8_t uuid[16]);
+const char *uuid2str128(const uint8_t uuid[16]);
 
 /* Convert UUID to string */
 const char *bt_uuidstr_to_str(const char *uuid);
