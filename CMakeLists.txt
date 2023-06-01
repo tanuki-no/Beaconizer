@@ -68,7 +68,7 @@ CHECK_INCLUDE_FILES (
 )
 
 IF (NOT REQUIRED_HEADERS_FOUND)
-    MESSAGE ( FATAL_ERROR "Required headers absent!" )
+  MESSAGE ( FATAL_ERROR "Required headers absent!" )
 ENDIF ()
 
 # Add GNU install dirs
@@ -79,16 +79,16 @@ OPTION ( HCI_BUILD_TESTS    "Build HCI library tests" OFF )
 OPTION ( HCI_BUILD_EXAMPLES "Build HCI examples"      OFF )
 
 IF ( DEFINED HCI_SHARED_LIBS )
-    SET ( BUILD_SHARED_LIBS ${HCI_SHARED_LIBS} )
+  SET ( BUILD_SHARED_LIBS ${HCI_SHARED_LIBS} )
 ENDIF ()
 
 # Build HCI library
 
 # Set includes path
 INCLUDE_DIRECTORIES (
-    ${CMAKE_BINARY_DIR}/include
-    ${CMAKE_SOURCE_DIR}/include
-    )
+  ${CMAKE_BINARY_DIR}/include
+  ${CMAKE_SOURCE_DIR}/include
+  )
 
 # Add sources
 LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/db.c" )
@@ -101,17 +101,17 @@ LIST ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
 # Set up build
 IF ( BUILD_SHARED_LIBS )
 
-    ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} STATIC ${SOURCES} )
+  ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} STATIC ${SOURCES} )
 
 ELSE ()
 
-    ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} SHARED ${SOURCES} )
+  ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME} SHARED ${SOURCES} )
 
-    SET_TARGET_PROPERTIES (
-        ${CFG_HCI_LIBRARY_NAME}     PROPERTIES
-        SOVERSION               ${CFG_HCI_LIBRARY_MAJOR}
-        VERSION                 ${CFG_HCI_LIBRARY_VERSION}
-        )
+  SET_TARGET_PROPERTIES (
+    ${CFG_HCI_LIBRARY_NAME}     PROPERTIES
+    SOVERSION               ${CFG_HCI_LIBRARY_MAJOR}
+    VERSION                 ${CFG_HCI_LIBRARY_VERSION}
+  )
 
 ENDIF ()
 ADD_LIBRARY ( ${CFG_HCI_LIBRARY_NAME}::${CFG_HCI_LIBRARY_NAME} ALIAS ${CFG_HCI_LIBRARY_NAME} )
@@ -121,5 +121,12 @@ ADD_SUBDIRECTORY ( include )
 
 # Add sources
 ADD_SUBDIRECTORY ( src )
+
+# Tests
+IF (BUILD_TESTS)
+  ENABLE_TESTING()
+  INCLUDE (CTest)
+  ADD_SUBDIRECTORY ( test )
+ENDIF ()
 
 # End of file

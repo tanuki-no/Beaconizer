@@ -129,11 +129,11 @@ static int signal_read(
     signal_data_t *data = user_data;
     struct signalfd_siginfo si;
     ssize_t result;
-    int fd;
+    int descriptor;
+    
+    descriptor = io_get_descriptor(io);
 
-    fd = io_get_fd(io);
-
-    result = read(fd, &si, sizeof(si));
+    result = read(descriptor, &si, sizeof(si));
     if (sizeof(si) != result)
         return 0;
 
