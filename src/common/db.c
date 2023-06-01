@@ -1008,44 +1008,44 @@ const char *uuid2str32(
 const char *uuid2str128(
     const uint8_t uuid[16]) {
 
-    char uuidstr[37];
+    char str[40];
 
-    snprintf(uuidstr, 36, "%8.8x-%4.4x-%4.4x-%4.4x-%8.8x%4.4x",
+    snprintf(str, 40, "%8.8x-%4.4x-%4.4x-%4.4x-%8.8x%4.4x",
         get_le32(&uuid[12]), get_le16(&uuid[10]),
         get_le16(&uuid[8]), get_le16(&uuid[6]),
         get_le32(&uuid[2]), get_le16(&uuid[0]));
 
-    return bt_uuidstr_to_str(uuidstr);
+    return detect_vendor(str);
 }
 
 /* Convert UUID to string */
-const char *bt_uuidstr_to_str(
+const char *detect_vendor(
     const char *uuid) {
 
-    uint32_t val;
-    size_t len;
-    int i;
+    uint32_t value = 0;
+    size_t length = 0;
+    int i = 0;
 
     if (!uuid)
         return NULL;
 
-    len = strlen(uuid);
+    length = strlen(uuid);
 
-    if (len < 37) {
+    if (36 > length) {
 
         char *endptr = NULL;
 
-        val = strtol(uuid, &endptr, 0);
+        value = strtol(uuid, &endptr, 0);
         if (NULL == endptr || '\0' != *endptr)
             return NULL;
 
-        if (val > UINT16_MAX)
-            return uuid2str32(val);
+        if (value > UINT16_MAX)
+            return uuid2str32(value);
 
-        return uuid2str16(val);
+        return uuid2str16(value);
     }
 
-    if (len != 36)
+    if (36 != length)
         return NULL;
 
     for (i = 0; NULL != __s_c_uuid128_table[i].str; i++) {
@@ -1056,10 +1056,10 @@ const char *bt_uuidstr_to_str(
     if (strncasecmp(uuid + 8, "-0000-1000-8000-00805f9b34fb", 28))
         return "Vendor specific";
 
-    if (1 != sscanf(uuid, "%08x-0000-1000-8000-00805f9b34fb", &val))
+    if (1 != sscanf(uuid, "%08x-0000-1000-8000-00805f9b34fb", &value))
         return NULL;
 
-    return uuid2str32(val);
+    return uuid2str32(value);
 }
 
 static const struct {
@@ -1125,7 +1125,7 @@ static const struct {
 };
 
 /* Convert 16-bit characteristic to string */
-const char *bt_appear_to_str(
+const char *detect_device(
     const uint16_t appearance) {
 
     const char *str = NULL;

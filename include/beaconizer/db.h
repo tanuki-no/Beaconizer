@@ -24,10 +24,10 @@ const char *uuid2str32(const uint32_t uuid);
 const char *uuid2str128(const uint8_t uuid[16]);
 
 /* Convert UUID to string */
-const char *bt_uuidstr_to_str(const char *uuid);
+const char *detect_vendor(const char *uuid);
 
 /* Convert 16-bit characteristic to string */
-const char *bt_appear_to_str(const uint16_t appearance);
+const char *detect_device(const uint16_t appearance);
 
 #endif /* __BTEST_UTILITY_H__ */
 

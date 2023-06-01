@@ -28,15 +28,14 @@ main() {
     for (i = 0; 10 > i; ++i) {
         l = getrandom(uuid, 16, GRND_NONBLOCK);
         const char* s = uuid2str128(uuid);
-        if (NULL != s && 16 == l) {
-            printf("UUID: %8.8x-%4.4x-%4.4x-%4.4x-%8.8x%4.4x => %s\n",
-                get_le32(&uuid[12]),get_le16(&uuid[10]),
-                get_le16(&uuid[8]), get_le16(&uuid[6]),
-                get_le32(&uuid[2]), get_le16(&uuid[0]),
-                s);
-        } else {
+        printf("UUID: %8.8x-%4.4x-%4.4x-%4.4x-%8.8x%4.4x => %s\n",
+            get_le32(&uuid[12]),get_le16(&uuid[10]),
+            get_le16(&uuid[8]), get_le16(&uuid[6]),
+            get_le32(&uuid[2]), get_le16(&uuid[0]),
+            s);
+
+        if (NULL == s || 16 != l)
             error++;
-        }
     }
     printf("-------------------------------------\n");
     printf("Done! Errors found: %d\n", error);

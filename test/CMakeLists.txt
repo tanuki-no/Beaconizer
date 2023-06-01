@@ -5,6 +5,7 @@
 list ( APPEND TEST   "db00" )
 list ( APPEND TEST   "db01" )
 list ( APPEND TEST   "db02" )
+list ( APPEND TEST   "db03" )
 
 # Library test
 # -----------------------------------------------------------------
