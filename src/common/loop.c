@@ -64,24 +64,6 @@ void loop_init(void) {
     loop_watchdog_init();
 }
 
-/* Quit loop immediately */
-void loop_quit(void) {
-    __s_epoll_terminate = 1;
-    loop_sd_notify("STOPPING=1");
-}
-
-/* Quit loop and set success */
-void loop_exit_success(void) {
-    __s_exit_status = EXIT_SUCCESS;
-    __s_epoll_terminate = 1;
-}
-
-/* Quit loop and set failure */
-void loop_exit_failure(void) {
-    __s_exit_status = EXIT_FAILURE;
-    __s_epoll_terminate = 1;
-}
-
 /* Run loop */
 int loop_run(void) {
 
@@ -129,7 +111,7 @@ int loop_run(void) {
 }
 
 /* Add descriptor to watch */
-int loop_add_fd(
+int loop_add_descriptor(
     const int           fd,
     const uint32_t      events,
     loop_event_fn_t     callback,
@@ -170,7 +152,7 @@ int loop_add_fd(
 }
 
 /* Modify watched descriptor */
-int loop_modify_fd(
+int loop_modify_descriptor(
     const int           fd,
     uint32_t            events) {
 
@@ -199,7 +181,7 @@ int loop_modify_fd(
 }
 
 /* Remove watched descriptor */
-int loop_remove_fd(
+int loop_remove_descriptor(
     const int           fd) {
 
     loop_data_t *data;
@@ -312,7 +294,7 @@ int loop_add_timeout(
         }
     }
 
-    if (0 > loop_add_fd(data->fd, EPOLLIN | EPOLLONESHOT, timeout_callback, data, timeout_destroy)) {
+    if (0 > loop_add_descriptor(data->fd, EPOLLIN | EPOLLONESHOT, timeout_callback, data, timeout_destroy)) {
         close(data->fd);
         free(data);
         return -EIO;
@@ -331,16 +313,34 @@ int loop_modify_timeout(
             return -EIO;
     }
 
-    if (0 > loop_modify_fd(id, EPOLLIN | EPOLLONESHOT))
+    if (0 > loop_modify_descriptor(id, EPOLLIN | EPOLLONESHOT))
         return -EIO;
 
     return 0;
 }
 
 /* Remove event processing timeout */
-int mainloop_remove_timeout(
+int loop_remove_timeout(
     const int           id) {
-    return loop_remove_fd(id);
+    return loop_remove_descriptor(id);
+}
+
+/* Quit loop immediately */
+void loop_quit(void) {
+    __s_epoll_terminate = 1;
+    loop_sd_notify("STOPPING=1");
+}
+
+/* Quit loop and set success */
+void loop_exit_success(void) {
+    __s_exit_status = EXIT_SUCCESS;
+    __s_epoll_terminate = 1;
+}
+
+/* Quit loop and set failure */
+void loop_exit_failure(void) {
+    __s_exit_status = EXIT_FAILURE;
+    __s_epoll_terminate = 1;
 }
 
  /* End of file */

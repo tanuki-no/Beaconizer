@@ -95,17 +95,6 @@ void loop_watchdog_init(void) {
         NULL);
 }
 
-/* Destroy watchdog in a loop */
-void loop_notify_exit(void) {
-
-    if (0 < __s_notify_fd) {
-        close(__s_notify_fd);
-        __s_notify_fd = -1;
-    }
-
-    timeout_remove(__s_watchdog);
-}
-
 /* Trigger watchdog */
 int loop_sd_notify(
     const char      *state) {
@@ -198,6 +187,17 @@ int loop_run_with_signal(
     free(signal_data);
 
     return ret;
+}
+
+/* Destroy watchdog in a loop */
+void loop_watchdog_exit(void) {
+
+    if (0 < __s_notify_fd) {
+        close(__s_notify_fd);
+        __s_notify_fd = -1;
+    }
+
+    timeout_remove(__s_watchdog);
 }
 
  /* End of file */

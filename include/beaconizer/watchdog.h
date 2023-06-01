@@ -20,9 +20,6 @@ typedef void (*loop_signal_fn_t) (
 /* Initialize watchdog in a loop */
 void loop_watchdog_init(void);
 
-/* Destroy watchdog in a loop */
-void loop_watchdog_exit(void);
-
 /* Add signal handler */
 int loop_set_signal(
     sigset_t            *mask,
@@ -38,6 +35,9 @@ int loop_sd_notify(
 int loop_run_with_signal(
     loop_signal_fn_t    func,
     void                *user_data);
+
+/* Destroy watchdog in a loop */
+void loop_watchdog_exit(void);
 
 #endif /* __BTEST_WATCHDOG_H__ */
 
