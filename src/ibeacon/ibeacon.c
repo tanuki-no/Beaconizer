@@ -13,12 +13,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
-#include <sys/ioctl.h>
 #include <sys/random.h>
-#include <sys/socket.h>
 
-#include "beaconizer/btest.h"
-#include "beaconizer/hci_cmd.h"
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/hci.h>
+#include <bluetooth/hci_lib.h>
+
+#include "beaconizer/config.h"
 #include "beaconizer/ibeacon.h"
 
 
@@ -126,7 +127,7 @@ main(int argc, char * const argv[], char * const env[]) {
 
     printf(
         "Beacon test suite %s\n"
-        "---------------------------------------------------------------------------------------------------\n", __BTEST_VERSION_STRING);
+        "---------------------------------------------------------------------------------------------------\n", __BEACONIZER_VERSION_STRING);
     printf(
         "%s - Low Energy iBeacon testing tool\n"
         "---------------------------------------------------------------------------------------------------\n", __IBEACON_NAME);
@@ -434,7 +435,7 @@ static int ib_process_command_line(
             /* Version */
             case 'v': {
 
-                printf("%s\n", __BTEST_VERSION_STRING);
+                printf("%s\n", __BEACONIZER_VERSION_STRING);
                 return EXIT_FAILURE;
 
                 } break;

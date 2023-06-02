@@ -21,7 +21,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "beaconizer/hci_config.h"
+#include "beaconizer/config.h"
 #include "beaconizer/loop.h"
 #include "beaconizer/watchdog.h"
 

@@ -13,11 +13,11 @@ set ( PROJECT_VERSION_MINOR	0 )
 set ( PROJECT_VERSION_PATCH	3 )
 set ( PROJECT_VERSION		    ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH} )
 
-set ( CFG_HCI_LIBRARY_NAME      "hci" )
-set ( CFG_HCI_LIBRARY_MAJOR     0 )
-set ( CFG_HCI_LIBRARY_MINOR     0 )
-set ( CFG_HCI_LIBRARY_PATCH     3 )
-set ( CFG_HCI_LIBRARY_VERSION   ${CFG_HCI_LIBRARY_MAJOR}.${CFG_HCI_LIBRARY_MINOR}.${CFG_HCI_LIBRARY_PATCH} )
+set ( CFG_LOOP_LIBRARY_NAME      "loop" )
+set ( CFG_LOOP_LIBRARY_MAJOR     0 )
+set ( CFG_LOOP_LIBRARY_MINOR     0 )
+set ( CFG_LOOP_LIBRARY_PATCH     4 )
+set ( CFG_LOOP_LIBRARY_VERSION   ${CFG_LOOP_LIBRARY_MAJOR}.${CFG_LOOP_LIBRARY_MINOR}.${CFG_LOOP_LIBRARY_PATCH} )
 set ( CFG_MAX_EPOLL_EVENTS      16 )
 set ( CFG_MAX_LOOP_ENTRIES      128 )
 set ( CFG_WATCHDOG_TRG_FREQ     2 )
@@ -26,7 +26,7 @@ set ( CFG_WATCHDOG_TRG_FREQ     2 )
 set ( ALIAS             "Beaconizer" )
 set ( AUTHOR            "Vladislav \\\"Tanuki\\\" Mikhailikov" )
 set ( COPYRIGHT         "GNU GPLv3" )
-set ( DESCRIPTION       "BLE beacon sample code for Linux and C" )
+set ( DESCRIPTION       "BLE beacon works for Linux, BlueZ! and C" )
 
 # Service setup
 string ( TIMESTAMP TODAY "%d/%m/%Y" )
@@ -71,15 +71,29 @@ if (NOT REQUIRED_HEADERS_FOUND)
   message ( FATAL_ERROR "Required headers absent!" )
 endif ()
 
+# Library search paths
+SET ( LIBRARY_SEARCH_PATH "/lib"                              )
+SET ( LIBRARY_SEARCH_PATH "${LIBRARY_SEARCH_PATH} /lib32"     )
+SET ( LIBRARY_SEARCH_PATH "${LIBRARY_SEARCH_PATH} /lib64"     )
+SET ( LIBRARY_SEARCH_PATH "${LIBRARY_SEARCH_PATH} /usr/lib"   )
+SET ( LIBRARY_SEARCH_PATH "${LIBRARY_SEARCH_PATH} /usr/lib32" )
+SET ( LIBRARY_SEARCH_PATH "${LIBRARY_SEARCH_PATH} /usr/lib64" )
+
+# Detect BlueZ! library
+include ( "${CMAKE_SOURCE_DIR}/cmake/FindBlueZ.cmake" )
+IF (NOT BLUETOOTH_FOUND)
+    MESSAGE ( ERROR "BlueZ library and headers not found!" )
+ENDIF ()
+
 # Add GNU install dirs
 include ( GNUInstallDirs )
 
-# HCI_SHARED_LIBS determines static/shared build when defined
-option ( HCI_BUILD_TESTS    "Build HCI library tests" off )
-option ( HCI_BUILD_EXAMPLES "Build HCI examples"      off )
+# LOOP_SHARED_LIBS determines static/shared build when defined
+option ( LOOP_BUILD_TESTS    "Build loop library tests" off )
+option ( LOOP_BUILD_EXAMPLES "Build loop examples"      off )
 
-if ( DEFINED HCI_SHARED_LIBS )
-  set ( BUILD_SHARED_LIBS ${HCI_SHARED_LIBS} )
+if ( DEFINED LOOP_SHARED_LIBS )
+  set ( BUILD_SHARED_LIBS ${LOOP_SHARED_LIBS} )
 endif ()
 
 # Build HCI library
@@ -101,20 +115,21 @@ list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
 # Set up build
 if ( BUILD_SHARED_LIBS )
 
-  add_library ( ${CFG_HCI_LIBRARY_NAME} STATIC ${SOURCES} )
+  add_library ( ${CFG_LOOP_LIBRARY_NAME} STATIC ${SOURCES} )
 
 else ()
 
-  add_library ( ${CFG_HCI_LIBRARY_NAME} SHARED ${SOURCES} )
+  add_library ( ${CFG_LOOP_LIBRARY_NAME} SHARED ${SOURCES} )
 
   set_target_properties (
-    ${CFG_HCI_LIBRARY_NAME}     PROPERTIES
-    SOVERSION               ${CFG_HCI_LIBRARY_MAJOR}
-    VERSION                 ${CFG_HCI_LIBRARY_VERSION}
+    ${CFG_LOOP_LIBRARY_NAME}     PROPERTIES
+    SOVERSION               ${CFG_LOOP_LIBRARY_MAJOR}
+    VERSION                 ${CFG_LOOP_LIBRARY_VERSION}
   )
 
 endif ()
-add_library ( ${CFG_HCI_LIBRARY_NAME}::${CFG_HCI_LIBRARY_NAME} ALIAS ${CFG_HCI_LIBRARY_NAME} )
+
+add_library ( ${CFG_LOOP_LIBRARY_NAME}::${CFG_LOOP_LIBRARY_NAME} ALIAS ${CFG_LOOP_LIBRARY_NAME} )
 
 # Add includes
 add_subdirectory ( include )

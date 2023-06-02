@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <bluetooth/bluetooth.h>
-#include "btest/btest.h"
+#include "beaconizer/config.h"
 
 int
 main(

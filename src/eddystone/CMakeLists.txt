@@ -4,7 +4,7 @@
 ENABLE_LANGUAGE ( C )
 
 # Define build name
-SET ( BUILD_NAME	"eddystone_${PROJECT_NAME}" )
+SET ( BUILD_NAME	"eddystone" )
 
 # Set includes path
 INCLUDE_DIRECTORIES (

@@ -21,10 +21,10 @@ foreach ( T ${TEST} )
     RUNTIME_OUTPUT_DIRECTORY    "${CMAKE_BINARY_DIR}/test"
     )
 
-  add_dependencies      ( "${T}" ${CFG_HCI_LIBRARY_NAME}		)
-  target_link_libraries ( "${T}" ${CFG_HCI_LIBRARY_NAME}		)
+  add_dependencies      ( "${T}" ${CFG_LOOP_LIBRARY_NAME}		)
+  target_link_libraries ( "${T}" ${CFG_LOOP_LIBRARY_NAME}		)
 
-  add_test(
+  add_test (
     name              "${T}"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test"
     command           "${T}"
