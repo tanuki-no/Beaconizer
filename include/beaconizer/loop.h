@@ -9,8 +9,8 @@
 
 #pragma once
 
-#ifndef __BTEST_LOOP_H__
-#define __BTEST_LOOP_H__
+#ifndef __BEACONIZER_LOOP_H__
+#define __BEACONIZER_LOOP_H__
 
 /* User function used to destroy loop and cleanup */
 typedef void (*loop_destroy_fn_t) (
@@ -75,6 +75,6 @@ void loop_exit_success(void);
 /* Quit loop and set failure */
 void loop_exit_failure(void);
 
-#endif /* __BTEST_LOOP_H__ */
+#endif /* __BEACONIZER_LOOP_H__ */
 
 /* End of file */

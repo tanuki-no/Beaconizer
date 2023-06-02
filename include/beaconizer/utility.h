@@ -14,8 +14,8 @@
 
 #pragma once
 
-#ifndef __BTEST_UTILITY_H__
-#define __BTEST_UTILITY_H__
+#ifndef __BEACONIZER_UTILITY_H__
+#define __BEACONIZER_UTILITY_H__
 
 #define get_unaligned(ptr)                      \
 __extension__ ({                                \
@@ -117,6 +117,6 @@ void util_clear_uid(uint64_t *bitmap, uint8_t id);
 char *strdelimit(char *str, char *del, char c);
 int strsuffix(const char *str, const char *suffix);
 
-#endif /* __BTEST_UTILITY_H__ */
+#endif /* __BEACONIZER_UTILITY_H__ */
 
 /* End of file */

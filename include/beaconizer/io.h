@@ -12,8 +12,8 @@
 
 #pragma once
 
-#ifndef __BTEST_IO_H__
-#define __BTEST_IO_H__
+#ifndef __BEACONIZER_IO_H__
+#define __BEACONIZER_IO_H__
 
 /* Forward declaration */
 struct io;
@@ -72,6 +72,6 @@ int io_shutdown(
 void io_destroy(
     struct io          *io);
 
-#endif /* __BTEST_IO_H__ */
+#endif /* __BEACONIZER_IO_H__ */
 
 /* End of file */

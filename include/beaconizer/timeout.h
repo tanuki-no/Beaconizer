@@ -9,8 +9,8 @@
 
 #pragma once
 
-#ifndef __BTEST_TIMEOUT_H__
-#define __BTEST_TIMEOUT_H__
+#ifndef __BEACONIZER_TIMEOUT_H__
+#define __BEACONIZER_TIMEOUT_H__
 
 typedef int  (*timeout_fn_t)(void *user_data);
 typedef void (*timeout_destroy_fn_t)(void *user_data);
@@ -30,6 +30,6 @@ unsigned int timeout_add_seconds(
     void                   *user_data,
     timeout_destroy_fn_t    destroy);
 
-#endif /* __BTEST_TIMEOUT_H__ */
+#endif /* __BEACONIZER_TIMEOUT_H__ */
 
 /* End of file */

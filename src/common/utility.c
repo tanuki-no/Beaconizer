@@ -202,7 +202,7 @@ void util_debug_va(
 
     char str[MAX_INPUT];
 
-    if (!function || !format)
+    if (NULL == function || NULL == format)
         return;
 
     vsnprintf(str, sizeof(str), format, va);

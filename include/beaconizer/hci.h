@@ -12,8 +12,8 @@
 
 #pragma once
 
-#ifndef __BTEST_HCI_H__
-#define __BTEST_HCI_H__
+#ifndef __BEACONIZER_HCI_H__
+#define __BEACONIZER_HCI_H__
 
 typedef void (*bt_hci_destroy_fn_t)(
     void *user_data);
@@ -68,6 +68,6 @@ bool bt_hci_unregister(
     struct bt_hci *hci,
     unsigned int id);
 
-#endif /* __BTEST_HCI_H__ */
+#endif /* __BEACONIZER_HCI_H__ */
 
 /* End of file */

@@ -11,8 +11,8 @@
 
 #pragma once
 
-#ifndef __BTEST_HCI_CMD_H__
-#define __BTEST_HCI_CMD_H__
+#ifndef __BEACONIZER_HCI_CMD_H__
+#define __BEACONIZER_HCI_CMD_H__
 
 #define BIT_OFFSET(_byte, _bit) ((8 * _byte) + _bit)
 

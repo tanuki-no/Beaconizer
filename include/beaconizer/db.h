@@ -11,8 +11,8 @@
 
 #include <stdint.h>
 
-#ifndef __BTEST_DB_H__
-#define __BTEST_DB_H__
+#ifndef __BEACONIZER_DB_H__
+#define __BEACONIZER_DB_H__
 
 /* Convert 16-bit characteristic to string */
 const char *uuid2str16(const uint16_t uuid);
@@ -29,6 +29,6 @@ const char *detect_vendor(const char *uuid);
 /* Convert 16-bit characteristic to string */
 const char *detect_device(const uint16_t appearance);
 
-#endif /* __BTEST_UTILITY_H__ */
+#endif /* __BEACONIZER_DB_H__ */
 
 /* End of file */

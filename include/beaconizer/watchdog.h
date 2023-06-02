@@ -9,8 +9,8 @@
 
 #pragma once
 
-#ifndef __BTEST_WATCHDOG_H__
-#define __BTEST_WATCHDOG_H__
+#ifndef __BEACONIZER_WATCHDOG_H__
+#define __BEACONIZER_WATCHDOG_H__
 
 /* User function used to process signal in a loop */
 typedef void (*loop_signal_fn_t) (
@@ -39,6 +39,6 @@ int loop_run_with_signal(
 /* Destroy watchdog in a loop */
 void loop_watchdog_exit(void);
 
-#endif /* __BTEST_WATCHDOG_H__ */
+#endif /* __BEACONIZER_WATCHDOG_H__ */
 
 /* End of file */

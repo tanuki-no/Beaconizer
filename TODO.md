@@ -8,6 +8,8 @@ but the possible improvement or enhancement in later versions.
 ### Bluetooth database (db.h/db.c)
 * Consider better database organization using hashmap or similar solution
 * Find the way to autogenerate the UUID databases from approved specifications and manufacturers data
+* Extend vendor database
+* Extend device database
 
 ### Loop (loop.h/loop.c)
 * Use atomics in critical ops

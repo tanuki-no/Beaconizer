@@ -9,8 +9,8 @@
 
 #pragma once
 
-#ifndef __BEACON_HCI_CONFIG_H__
-#define __BEACON_HCI_CONFIG_H__
+#ifndef __BEACONIZER_HCI_CONFIG_H__
+#define __BEACONIZER_HCI_CONFIG_H__
 
 #define __HCI_LIBRARY_VERSION_MAJOR     @CFG_HCI_LIBRARY_MAJOR@
 #define __HCI_LIBRARY_VERSION_MINOR     @CFG_HCI_LIBRARY_MINOR@
@@ -21,6 +21,6 @@
 #define __MAX_LOOP_ENTRIES              @CFG_MAX_LOOP_ENTRIES@
 #define __WATCHDOG_TRIGGER_FREQ         @CFG_WATCHDOG_TRG_FREQ@
 
-#endif /* __BEACON_HCI_CONFIG_H__ */
+#endif /* __BEACONIZER_HCI_CONFIG_H__ */
 
 /* End of file */
