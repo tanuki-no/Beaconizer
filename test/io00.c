@@ -17,6 +17,8 @@
 #include <bluetooth/hci_lib.h>
 
 #include "beaconizer/io.h"
+#include "beaconizer/loop.h"
+
 
 int hci_device_id = -1;
 int descriptor = -1;
@@ -45,6 +47,7 @@ main() {
 
     printf("HCI %d opened!\n", hci_device_id),
 
+    loop_init();
     data = io_new(descriptor);
 
     if (NULL != data) {
@@ -56,6 +59,7 @@ main() {
         printf("io_new(%d) failed: %s, %d\n", descriptor, strerror(errno), errno);
         return EXIT_FAILURE;
     }
+    loop_quit();
     hci_close_dev(descriptor);
 
     printf("HCI %d closed!\n", hci_device_id),

@@ -200,11 +200,11 @@ int io_set_close_on_destroy(
     int     do_close) {
     
     if (NULL == _io)
-        return 0;
+        return EXIT_FAILURE;
 
     _io->close_on_destroy = do_close;
 
-    return 1;
+    return EXIT_SUCCESS;
 }
 
 /* Set read callbacks in I/O tracker */
@@ -314,17 +314,17 @@ int io_set_disconnect_handler(
 
 /* Send data through I/O channel */
 ssize_t io_send(
-    io_t                *_io,
+    io_t                *data,
     const struct iovec  *iov,
     int iovcnt)
 {
     ssize_t ret;
 
-    if (NULL == _io || 0 > _io->descriptor)
+    if (NULL == data || 0 > data->descriptor)
         return -ENOTCONN;
 
     do {
-        ret = writev(_io->descriptor, iov, iovcnt);
+        ret = writev(data->descriptor, iov, iovcnt);
     } while (0 > ret && EINTR == errno);
 
     if (0 > ret)
@@ -335,29 +335,28 @@ ssize_t io_send(
 
 /* Shutdown I/O channel */
 int io_shutdown(
-    struct io *_io)
+    struct io *data)
 {
-    if (NULL == _io || 0 > _io->descriptor)
+    if (NULL == data || 0 > data->descriptor)
         return -ENOTCONN;;
 
-    return shutdown(_io->descriptor, SHUT_RDWR);
+    return shutdown(data->descriptor, SHUT_RDWR);
 }
-
 
 /* Destroy I/O channel */
 void io_destroy(
-    io_t *_io) {
+    io_t *data) {
 
-    if (!_io)
+    if (!data)
         return;
 
-    _io->read_callback = NULL;
-    _io->write_callback = NULL;
-    _io->disconnect_callback = NULL;
+    data->read_callback = NULL;
+    data->write_callback = NULL;
+    data->disconnect_callback = NULL;
 
-    loop_remove_descriptor(_io->descriptor);
+    loop_remove_descriptor(data->descriptor);
 
-    io_unref(_io);
+    io_unref(data);
 }
 
  /* End of file */

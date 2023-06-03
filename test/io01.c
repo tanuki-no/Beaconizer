@@ -1,9 +1,9 @@
 /*!
- *	\file		loop00.c
- *	\brief		Check loop
+ *	\file		io01.c
+ *	\brief		Check I/O channel
  *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
  *	\copyright	GNU GPL v3
- *	\date		02/06/2022
+ *	\date		28/05/2022
  *	\version	1.0
  */
 
@@ -48,13 +48,26 @@ main() {
     printf("HCI %d opened!\n", hci_device_id),
 
     loop_init();
+    data = io_new(descriptor);
 
-    printf("Loop created!\n"),
+    if (NULL != data) {
+        printf("I/O allocated. Data: %p\n", data);
 
+        printf("io_get_descriptor(%p): %d\n", data, io_get_descriptor(data));
+
+        if (io_set_close_on_destroy(data, 1)) {
+            printf("Unable to set CoE!\n");
+        } else {
+            printf("CoE set!\n");
+        }
+
+        io_destroy(data);
+        printf("I/O destroyed. Data: %p\n", data);
+    } else {
+        printf("io_new(%d) failed: %s, %d\n", descriptor, strerror(errno), errno);
+        return EXIT_FAILURE;
+    }
     loop_quit();
-
-    printf("Loop quit!\n"),
-
     hci_close_dev(descriptor);
 
     printf("HCI %d closed!\n", hci_device_id),
