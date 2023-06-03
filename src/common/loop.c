@@ -126,7 +126,7 @@ int loop_add_descriptor(
         return -EINVAL;
 
     data = malloc(sizeof(*data));
-    if (0 != data)
+    if (NULL == data)
         return -ENOMEM;
 
     memset(data, 0, sizeof(loop_data_t));

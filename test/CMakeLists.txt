@@ -24,6 +24,8 @@ foreach ( T ${TEST} )
   add_dependencies      ( "${T}" ${CFG_LOOP_LIBRARY_NAME}		)
   target_link_libraries ( "${T}" ${CFG_LOOP_LIBRARY_NAME}		)
 
+  target_link_libraries ( "${T}" ${BLUETOOTH_LIBRARY}		)
+
   add_test (
     name              "${T}"
     WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/test"

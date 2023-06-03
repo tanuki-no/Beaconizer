@@ -10,7 +10,9 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
 
@@ -43,52 +45,53 @@ typedef struct io {
 
 /* Reference count :: refer */
 static io_t *io_ref(
-    io_t *_io) {
+    io_t *data) {
     
-    if (NULL == _io)
+    if (NULL == data)
         return NULL;
 
-    __sync_fetch_and_add(&_io->reference_count, 1);
+    __sync_fetch_and_add(&data->reference_count, 1);
 
-    return _io;
+    return data;
 }
 
 /* Reference count :: deref */
 static void io_unref(
-    io_t *_io)
+    io_t *data)
 {
-    if (NULL == _io)
+    if (NULL == data)
         return;
 
-    if (__sync_sub_and_fetch(&_io->reference_count, 1))
+    if (__sync_sub_and_fetch(&data->reference_count, 1))
         return;
 
-    free(_io);
+    free(data);
 }
 
 /* Clean up */
-static void io_cleanup(
-    void *user_data) {
+static void io_destroy_callback(
+    void *data) {
 
-    io_t *_io = user_data;
+    io_t *pdata = data;
 
-    if (NULL != _io->write_destroy)
-        _io->write_destroy(_io->write_data);
+    if (NULL != pdata->write_destroy)
+        pdata->write_destroy(pdata->write_data);
 
-    if (NULL != _io->read_destroy)
-        _io->read_destroy(_io->read_data);
+    if (NULL != pdata->read_destroy)
+        pdata->read_destroy(pdata->read_data);
 
-    if (NULL != _io->disconnect_destroy)
-        _io->disconnect_destroy(_io->disconnect_data);
+    if (NULL != pdata->disconnect_destroy)
+        pdata->disconnect_destroy(pdata->disconnect_data);
 
-    if (0 != _io->close_on_destroy)
-        close(_io->descriptor);
+    if (0 != pdata->close_on_destroy)
+        close(pdata->descriptor);
 
-    _io->descriptor = -1;
+    pdata->descriptor = -1;
 }
 
-static void io_callback(
-    int         fd,
+/* Handle poll events */
+static void io_process_event(
+    int         descriptor,
     uint32_t    events,
     void       *user_data) {
 
@@ -96,6 +99,7 @@ static void io_callback(
 
     io_ref(_io);
 
+    /* Handle errors */
     if ((events & (EPOLLRDHUP | EPOLLHUP | EPOLLERR))) {
         
         _io->read_callback = NULL;
@@ -122,6 +126,7 @@ static void io_callback(
         }
     }
 
+    /* Handle reads */
     if ((events & EPOLLIN) && NULL != _io->read_callback) {
         if (!_io->read_callback(_io, _io->read_data)) {
             if (_io->read_destroy)
@@ -137,6 +142,7 @@ static void io_callback(
         }
     }
 
+    /* Handle writes */
     if ((events & EPOLLOUT) && _io->write_callback) {
         if (!_io->write_callback(_io, _io->write_data)) {
                 
@@ -157,20 +163,21 @@ static void io_callback(
 }
 
 /* Create and initialize new I/O channel using existing socket */
-struct io *io_new(
-    int fd) {
+io_t *io_new(
+    int descriptor) {
 
     io_t *_io = NULL;
 
-    if (fd < 0)
+    if (0 > descriptor)
         return NULL;
 
-    _io = new0(io_t, 1);
-    _io->descriptor = fd;
+    _io = malloc(sizeof(io_t));
+    memset(_io, 0, sizeof(io_t));
+    _io->descriptor = descriptor;
     _io->events = 0;
     _io->close_on_destroy = 0;
 
-    if (0 > loop_add_descriptor(_io->descriptor, _io->events, io_callback, _io, io_cleanup)) {
+    if (0 > loop_add_descriptor(_io->descriptor, _io->events, io_process_event, _io, io_destroy_callback)) {
         free(_io);
         return NULL;
     }
@@ -335,6 +342,7 @@ int io_shutdown(
 
     return shutdown(_io->descriptor, SHUT_RDWR);
 }
+
 
 /* Destroy I/O channel */
 void io_destroy(

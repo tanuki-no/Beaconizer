@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <string.h>
 #include <signal.h>
 
@@ -171,7 +172,8 @@ int loop_run_with_signal(
     if (NULL == func)
         return -EINVAL;
 
-    data = new0(signal_data_t, 1);
+    data = malloc(sizeof(signal_data_t));
+    memset(data, 0, sizeof(signal_data_t));
     data->func = func;
     data->user_data = user_data;
 

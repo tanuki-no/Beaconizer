@@ -12,9 +12,11 @@
 #include <byteswap.h>
 #include <ctype.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "beaconizer/utility.h"
@@ -53,6 +55,41 @@
 #error "Unknown byte order"
 #endif
 
+
+#define get_unaligned(ptr)                      \
+__extension__ ({                                \
+        struct __attribute__((packed)) {        \
+                __typeof__(*(ptr)) __v;         \
+        } *__p = (__typeof__(__p)) (ptr);       \
+        __p->__v;                               \
+})
+
+#define put_unaligned(val, ptr)                 \
+do {                                            \
+        struct __attribute__((packed)) {        \
+                __typeof__(*(ptr)) __v;         \
+        } *__p = (__typeof__(__p)) (ptr);       \
+        __p->__v = (val);                       \
+} while (0)
+
+// #define PTR_TO_UINT(p) ((unsigned int) ((uintptr_t) (p)))
+// #define UINT_TO_PTR(u) ((void *) ((uintptr_t) (u)))
+
+// #define PTR_TO_INT(p) ((int) ((intptr_t) (p)))
+// #define INT_TO_PTR(u) ((void *) ((intptr_t) (u)))
+
+// #define new0(type, count)                       \
+//         (type *) (__extension__ ({              \
+//                 size_t __n = (size_t) (count);  \
+//                 size_t __s = sizeof(type);      \
+//                 void *__p;                      \
+//                 __p = util_malloc(__n * __s);   \
+//                 memset(__p, 0, __n * __s);      \
+//                 __p;                            \
+//         }))
+
+// #define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
+// #define malloc0(n) (calloc((n), 1))
 
 /* LE/BE byte conversion */
 int8_t get_s8(

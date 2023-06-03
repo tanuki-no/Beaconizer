@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "beaconizer/loop.h"
@@ -56,7 +57,8 @@ unsigned int timeout_add(
 
     timeout_data_t *data;
 
-    data = new0(timeout_data_t, 1);
+    data = malloc(sizeof(timeout_data_t));
+    memset(data, 0, sizeof(timeout_data_t));
     data->func = func;
     data->user_data = user_data;
     data->timeout = timeout;
