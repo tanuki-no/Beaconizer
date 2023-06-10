@@ -9,6 +9,7 @@ list ( APPEND TEST   "db03" )
 list ( APPEND TEST   "io00" )
 list ( APPEND TEST   "io01" )
 list ( APPEND TEST   "loop00" )
+list ( APPEND TEST   "loop01" )
 
 # Library test
 # -----------------------------------------------------------------

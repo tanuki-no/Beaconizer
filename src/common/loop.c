@@ -52,6 +52,7 @@ typedef struct {
 
 /* Initialize loop */
 void loop_init(void) {
+
     unsigned int i;
 
     __s_epoll_fd = epoll_create1(EPOLL_CLOEXEC);
@@ -70,7 +71,7 @@ int loop_run(void) {
     unsigned int i;
 
     /* Loop */
-    while (0 != __s_epoll_terminate) {
+    while (0 == __s_epoll_terminate) {
 
         struct epoll_event events[__MAX_EPOLL_EVENTS];
         int n, nfds;

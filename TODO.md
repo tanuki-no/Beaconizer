@@ -17,4 +17,10 @@ but the possible improvement or enhancement in later versions.
 ### Watchdog
 * Simplify watchdog.
 
+## iBeacon
+ * GTK4 interface for fast demo
+
+## Eddystone
+ * GTK4 interface for fast demo
+
 Later, TBD moving into issues to be solved as usual.
