@@ -18,8 +18,8 @@ typedef void (*loop_destroy_fn_t) (
 
 /* User function used to process events in a loop */
 typedef void (*loop_event_fn_t) (
-    int         fd,
-    uint32_t    events,
+    int         sd,
+    uint32_t    event_mask,
     void        *user_data);
 
 /* User function used to process timeout in a loop */
@@ -36,7 +36,7 @@ int loop_run(void);
 /* Add descriptor to watch */
 int loop_add_descriptor(
     const int           fd,
-    const uint32_t      events,
+    const uint32_t      event_mask,
     loop_event_fn_t     event_callback,
     void                *user_data,
     loop_destroy_fn_t   destroy_callback);

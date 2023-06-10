@@ -40,7 +40,7 @@ typedef struct {
     void                *user_data;
 } signal_data_t;
 
-static signal_data_t *signal_data;
+static signal_data_t *__s_p_signal_data = NULL;
 
 static int watchdog_callback(
     void            *user_data) {
@@ -186,7 +186,7 @@ int loop_run_with_signal(
     ret = loop_run();
 
     io_destroy(io);
-    free(signal_data);
+    free(__s_p_signal_data);
 
     return ret;
 }
@@ -201,7 +201,6 @@ void loop_watchdog_exit(void) {
 
     timeout_remove(__s_watchdog);
 }
-
 
 
  /* End of file */
