@@ -12,26 +12,18 @@
 #ifndef __BEACONIZER_LOOP_H__
 #define __BEACONIZER_LOOP_H__
 
-/* User function used to destroy loop and cleanup */
-typedef void (*loop_destroy_fn_t) (
-    void        *user_data);
-
 /* User function used to process events in a loop */
 typedef void (*loop_event_fn_t) (
     int         sd,
     uint32_t    event_mask,
     void        *user_data);
 
-/* User function used to process timeout in a loop */
-typedef void (*loop_timeout_fn_t) (
-    int         id,
+/* User function used to destroy loop and cleanup */
+typedef void (*loop_destroy_fn_t) (
     void        *user_data);
 
 /* Initialize loop */
-void loop_init(void);
-
-/* Run loop */
-int loop_run(void);
+int loop_init(void);
 
 /* Add descriptor to watch */
 int loop_add_descriptor(
@@ -50,21 +42,8 @@ int loop_modify_descriptor(
 int loop_remove_descriptor(
     const int           fd);
 
-/* Add timeout to event processing */
-int loop_add_timeout(
-    const unsigned int  msec,
-    loop_timeout_fn_t   timeout_callback,
-    void                *user_data,
-    loop_destroy_fn_t   destroy_callback);
-
-/* Modify event processing timeout */
-int loop_modify_timeout(
-    const int           id,
-    unsigned int        msec);
-
-/* Remove event processing timeout */
-int loop_remove_timeout(
-    const int           id);
+/* Run loop */
+void loop_run(void);
 
 /* Quit loop immediately */
 void loop_quit(void);

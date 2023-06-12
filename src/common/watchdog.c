@@ -183,7 +183,7 @@ int loop_run_with_signal(
         return -errno;
     }
 
-    ret = loop_run();
+    loop_run();
 
     io_destroy(io);
     free(__s_p_signal_data);

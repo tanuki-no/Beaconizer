@@ -8,30 +8,21 @@
  */
 
 #define _GNU_SOURCE
-#include <stdio.h>
+
 #include <errno.h>
-#include <unistd.h>
 #include <stdlib.h>
-#include <stddef.h>
+#include <unistd.h>
 #include <string.h>
-#include <signal.h>
-#include <sys/signalfd.h>
-#include <sys/timerfd.h>
 #include <sys/epoll.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 
 #include "beaconizer/config.h"
 #include "beaconizer/loop.h"
 #include "beaconizer/watchdog.h"
 
+#define ENTRY_CHANGE   32
 
-/* Epoll stuff */
-static int __s_epoll_fd = -1;
-static int __s_epoll_terminate = 0;
-static int __s_exit_status = EXIT_SUCCESS;
 
-/* Loop entry */
+/* Loop entry type */
 typedef struct {
     int                 sd;             /* Socket descriptor */
     uint32_t            event_mask;     /* Event mask */
@@ -40,76 +31,48 @@ typedef struct {
     void                *user_data;     /* Custom user data */
 } loop_data_t;
 
-static loop_data_t*  _s_loop_list[__MAX_LOOP_ENTRIES];
-
-/* Timeout entry */
-typedef struct {
-    int                 sd;             /* Socket descriptor */
-    loop_timeout_fn_t   callback;       /* Callback for socket descriptor timeout */
-    loop_destroy_fn_t   destroy;        /* Clean up */
-    void                *user_data;     /* User data if any */
-} timeout_data_t;
+/* Loop control structure */
+static struct {
+    int             fd;             /* epoll() descriptor */
+    int             terminate;      /* Loop termination flag */
+    int             status;         /* Exit status */
+    size_t          free_entry;     /* Loop free entry */
+    size_t          current_entry;  /* Loop current entry index */
+    size_t          entry_count;    /* Loop entry count */
+    loop_data_t**   entry;          /* Loop entry dynamic array */
+} __s_loop_control = {
+    .fd             = -1,
+    .terminate      = 0,
+    .status         = EXIT_SUCCESS,
+    .free_entry     = ENTRY_CHANGE,
+    .current_entry  = 0,
+    .entry_count    = 0,
+    .entry          = NULL
+};
 
 /* Initialize loop */
-void loop_init(void) {
+int loop_init(void) {
 
     unsigned int i;
 
-    __s_epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+    __s_loop_control.fd = epoll_create1(EPOLL_CLOEXEC);
+    if ( 0 > __s_loop_control.fd) {
+        return (0 > errno ? errno : -errno);
+    }
 
-    for (i = 0; __MAX_LOOP_ENTRIES > i; i++)
-        _s_loop_list[i] = NULL;
+    __s_loop_control.entry_count = ENTRY_CHANGE;
+    __s_loop_control.entry = malloc(sizeof(loop_data_t) * __s_loop_control.entry_count);
+    if (NULL == __s_loop_control.entry) {
+        return (0 > ENOMEM ? ENOMEM : -ENOMEM);
+    }
 
-    __s_epoll_terminate = 0;
+    for (i = 0; __s_loop_control.entry_count > i; i++) {
+        __s_loop_control.entry[i] = NULL;
+    }
 
     loop_watchdog_init();
-}
 
-/* Run loop */
-int loop_run(void) {
-
-    unsigned int i;
-    struct epoll_event event[__MAX_EPOLL_EVENTS];
-
-    /* Loop */
-    while (0 == __s_epoll_terminate) {
-
-        int count = epoll_wait(__s_epoll_fd, event, __MAX_EPOLL_EVENTS, -1);
-
-        if (0 > count)
-            continue;
-
-        unsigned int j;
-        for (j = 0; count > j; j++) {
-            loop_data_t *p_data = event[j].data.ptr;
-            p_data->callback(p_data->sd, event[j].events, p_data->user_data);
-        }
-    }
-
-    /* Clean up */
-    for (i = 0; __MAX_LOOP_ENTRIES > i; i++) {
-        loop_data_t *p_data = _s_loop_list[i];
-        _s_loop_list[i] = NULL;
-
-        if (NULL != p_data) {
-
-            epoll_ctl(__s_epoll_fd, EPOLL_CTL_DEL, p_data->sd, NULL);
-
-            if (NULL != p_data->destroy)
-                p_data->destroy(p_data->user_data);
-
-            free(p_data);
-        }
-    }
-
-    /* Close socket */
-    close(__s_epoll_fd);
-    __s_epoll_fd = 0;
-
-    /* Shutdown watchdog */
-    loop_watchdog_exit();
-
-    return __s_exit_status;
+    return EXIT_SUCCESS;
 }
 
 /* Add descriptor to watch */
@@ -120,41 +83,69 @@ int loop_add_descriptor(
     void                *user_data,
     loop_destroy_fn_t   destroy) {
 
-    loop_data_t *p_data = NULL;
-    struct epoll_event ev;
+    loop_data_t        *p_data = NULL;
+    struct epoll_event  event;
+    int                 error = EXIT_SUCCESS;
+    size_t              i;
 
-    if (0 > sd || (__MAX_LOOP_ENTRIES - 1) < sd || NULL != callback)
-        return -EINVAL;
+    /* Exit if socket descriptor is wrong */
+    if (0 > sd) {
+        return (0 > EINVAL ? EINVAL : -EINVAL);
+    }
+
+    /* Exit if callback is NULL */
+    if (NULL == callback) {
+        return (0 > EINVAL ? EINVAL : -EINVAL);
+    }
+
+    /* Reallocate if no free memory */
+    if (0 == __s_loop_control.free_entry) {
+        size_t i = __s_loop_control.entry_count;
+
+        __s_loop_control.entry_count += ENTRY_CHANGE;
+        __s_loop_control.entry = realloc(
+            __s_loop_control.entry,
+            sizeof(loop_data_t) * __s_loop_control.entry_count);
+
+        for (; __s_loop_control.entry_count > i; ++i) {
+            __s_loop_control.entry[i] = NULL;
+        }
+        __s_loop_control.free_entry = ENTRY_CHANGE;
+    }
 
     /* Allocate loop entry */
     p_data = malloc(sizeof(*p_data));
-    if (NULL == p_data)
-        return -ENOMEM;
+    if (NULL == p_data) {
+        return (0 > ENOMEM ? ENOMEM : -ENOMEM);
+    }
 
     /* Fill loop entry */
     memset(p_data, 0, sizeof(loop_data_t));
-    p_data->sd = sd;
-    p_data->event_mask = event_mask;
-    p_data->callback = callback;
-    p_data->destroy = destroy;
-    p_data->user_data = user_data;
+    p_data->sd          = sd;
+    p_data->event_mask  = event_mask;
+    p_data->callback    = callback;
+    p_data->destroy     = destroy;
+    p_data->user_data   = user_data;
 
     /* Fill epoll() event entry */
-    memset(&ev, 0, sizeof(ev));
-    ev.events = event_mask;
-    ev.data.ptr = p_data;
+    memset(&event, 0, sizeof(event));
+    event.events           = event_mask;
+    event.data.ptr         = p_data;
 
     /* Add epoll entry */
-    int e = epoll_ctl(__s_epoll_fd, EPOLL_CTL_ADD, p_data->sd, &ev);
-    if (0 > e) {
+    error = epoll_ctl(__s_loop_control.fd, EPOLL_CTL_ADD, p_data->sd, &event);
+    if (0 > error) {
         free(p_data);
-        return e;
+        return error;
     }
 
     /* Store loop entry on success */
-    _s_loop_list[sd] = p_data;
+    i = __s_loop_control.current_entry;
+    __s_loop_control.entry[i] = p_data;
+    __s_loop_control.current_entry++;
+    __s_loop_control.free_entry--;
 
-    return 0;
+    return error;
 }
 
 /* Modify watched descriptor */
@@ -162,188 +153,173 @@ int loop_modify_descriptor(
     const int           sd,
     uint32_t            event_mask) {
 
-    loop_data_t *p_data = NULL;
-    struct epoll_event ev;
+    loop_data_t *p_entry = NULL;
+    struct epoll_event event;
+    size_t i;
+    int error;
 
-    if (0 > sd || (__MAX_LOOP_ENTRIES - 1) < sd)
-        return -EINVAL;
+    /* Exit if socket descriptor is wrong */
+    if (0 > sd) {
+        return (0 > EINVAL ? EINVAL : -EINVAL);
+    }
 
-    p_data = _s_loop_list[sd];
-    if (NULL == p_data)
-        return -ENXIO;
+    /* Find entry */
+    for (i = 0; __s_loop_control.current_entry > i; ++i) {
+        if (sd == __s_loop_control.entry[i]->sd) {
+            p_entry = __s_loop_control.entry[i];
+            break;
+        }
+    }
 
-    memset(&ev, 0, sizeof(ev));
-    ev.events = event_mask;
-    ev.data.ptr = p_data;
+    if (NULL == p_entry) {
+        return (0 > ENXIO ? ENXIO : -ENXIO);
+    }
 
-    int e = epoll_ctl(__s_epoll_fd, EPOLL_CTL_MOD, p_data->sd, &ev);
-    if (0 > e)
-        return e;
+    memset(&event, 0, sizeof(event));
+    event.events = event_mask;
+    event.data.ptr = p_entry;
 
-    p_data->event_mask = event_mask;
+    error = epoll_ctl(__s_loop_control.fd, EPOLL_CTL_MOD, p_entry->sd, &event);
+    if (0 > error) {
+        return error;
+    }
+ 
+    p_entry->event_mask = event_mask;
 
-    return e;
+    return error;
 }
 
 /* Remove watched descriptor */
 int loop_remove_descriptor(
     const int           sd) {
 
-    if (0 > sd || (__MAX_LOOP_ENTRIES - 1) < sd)
-        return -EINVAL;
+    size_t i, entry_idx;
+    int error;
 
-    loop_data_t *p_data = _s_loop_list[sd];
-
-    if (NULL == p_data)
-        return -ENXIO;
-
-    _s_loop_list[sd] = NULL;
-
-    int e = epoll_ctl(__s_epoll_fd, EPOLL_CTL_DEL, p_data->sd, NULL);
-
-    if (NULL != p_data->destroy)
-        p_data->destroy(p_data->user_data);
-
-    free(p_data);
-
-    return e;
-}
-
-/* Timeout clean up */
-static void timeout_destroy(
-    void                *user_data) {
-
-    timeout_data_t *p_data = user_data;
-
-    close(p_data->sd);
-    p_data->sd = -1;
-
-    if (NULL != p_data->destroy)
-        p_data->destroy(p_data->user_data);
-
-    free(p_data);
-}
-
-/* Timeout callback */
-static void timeout_callback(
-    const int           sd,
-    const uint32_t      event_mask,
-    void                *user_data) {
-
-    timeout_data_t *p_data = user_data;
-    uint64_t expired;
-    ssize_t result;
-
-    if (event_mask & (EPOLLERR | EPOLLHUP))
-        return;
-
-    result = read(p_data->sd, &expired, sizeof(expired));
-    if (sizeof(expired) != result)
-        return;
-
-    if (p_data->callback)
-        p_data->callback(p_data->sd, p_data->user_data);
-}
-
-/* Set timeout */
-static inline int timeout_set(
-    const int           fd,
-    const unsigned int  msec) {
-
-    struct itimerspec itimer;
-    unsigned int sec = msec / 1000;
-
-    memset(&itimer, 0, sizeof(itimer));
-    itimer.it_interval.tv_sec = 0;
-    itimer.it_interval.tv_nsec = 0;
-    itimer.it_value.tv_sec = sec;
-    itimer.it_value.tv_nsec = (msec - (sec * 1000)) * 1000 * 1000;
-
-    return timerfd_settime(fd, 0, &itimer, NULL);
-}
-
-/* Add timeout to event processing */
-int loop_add_timeout(
-    const unsigned int  msec,
-    loop_timeout_fn_t   callback,
-    void               *user_data,
-    loop_destroy_fn_t   destroy) {
-
-    timeout_data_t *p_timeout;
-
-    if ( NULL == callback)
-        return -EINVAL;
-
-    p_timeout = malloc(sizeof(timeout_data_t));
-    if (NULL == p_timeout)
-        return -ENOMEM;
-
-    memset(p_timeout, 0, sizeof(*p_timeout));
-    p_timeout->callback = callback;
-    p_timeout->destroy = destroy;
-    p_timeout->user_data = user_data;
-
-    p_timeout->sd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
-    if (0 > p_timeout->sd) {
-        free(p_timeout);
-        return -EIO;
+    /* Exit if socket descriptor is wrong */
+    if (0 > sd) {
+        return (0 > EINVAL ? EINVAL : -EINVAL);
     }
 
-    if (msec > 0) {
-        if (0 > timeout_set(p_timeout->sd, msec)) {
-            close(p_timeout->sd);
-            free(p_timeout);
-            return -EIO;
+    loop_data_t *p_entry = NULL;
+    for (i = 0; __s_loop_control.current_entry > i; ++i) {
+        if (sd == __s_loop_control.entry[i]->sd) {
+            p_entry = __s_loop_control.entry[i];
+            entry_idx = i;
+            break;
         }
     }
 
-    if (0 > loop_add_descriptor(p_timeout->sd, EPOLLIN | EPOLLONESHOT, timeout_callback, p_timeout, timeout_destroy)) {
-        close(p_timeout->sd);
-        free(p_timeout);
-        return -EIO;
+    if (NULL == p_entry) {
+        return (0 > ENXIO ? ENXIO : -ENXIO);
     }
 
-    return p_timeout->sd;
-}
+    __s_loop_control.current_entry--;
+    __s_loop_control.free_entry++;
+    for (i = entry_idx; __s_loop_control.current_entry > i; ++i) {
+        __s_loop_control.entry[i] = __s_loop_control.entry[i + 1];
+    }
+    __s_loop_control.entry[__s_loop_control.current_entry] = NULL;
 
-/* Modify event processing timeout */
-int loop_modify_timeout(
-    const int           id,
-    unsigned int        msec) {
+    error = epoll_ctl(__s_loop_control.fd, EPOLL_CTL_DEL, p_entry->sd, NULL);
 
-    if (0 < msec) {
-        if (0 > timeout_set(id, msec))
-            return -EIO;
+    if (NULL != p_entry->destroy) {
+        p_entry->destroy(p_entry->user_data);
     }
 
-    if (0 > loop_modify_descriptor(id, EPOLLIN | EPOLLONESHOT))
-        return -EIO;
+    free(p_entry);
 
-    return 0;
+    return error;
 }
 
-/* Remove event processing timeout */
-int loop_remove_timeout(
-    const int           id) {
-    return loop_remove_descriptor(id);
+/* Run loop */
+void loop_run(void) {
+
+    size_t i;
+    int count;
+    struct epoll_event* event_pool = malloc(__s_loop_control.entry_count * sizeof(struct epoll_event));
+
+    /* Loop */
+    while (0 == __s_loop_control.terminate) {
+ 
+        count = epoll_wait(
+            __s_loop_control.fd,
+            event_pool,
+            __s_loop_control.entry_count,
+            -1);
+
+        if (0 > count)
+            continue;
+
+        for (i = 0; count > i; i++) {
+            loop_data_t *p_entry = event_pool[i].data.ptr;
+            p_entry->callback(p_entry->sd, event_pool[i].events, p_entry->user_data);
+        }
+    }
+
+    free(event_pool);
+}
+
+/* Loop clean up */
+static void loop_cleanup() {
+    loop_data_t *p_data = NULL;
+    size_t i = 0;
+
+    /* Free allocated memory */
+    if (NULL != __s_loop_control.entry) {
+
+        /* Free entries */
+        for (; __s_loop_control.current_entry > i; ++i) {
+            p_data = __s_loop_control.entry[i];
+            __s_loop_control.entry[i] = NULL;
+
+            if (NULL != p_data) {
+
+                epoll_ctl(__s_loop_control.fd, EPOLL_CTL_DEL, p_data->sd, NULL);
+
+                if (NULL != p_data->destroy) {
+                    p_data->destroy(p_data->user_data);
+                }
+
+                free(p_data);
+            }
+        }
+
+        free(__s_loop_control.entry);
+    }
+
+    /* Close epoll descriptor() if open */
+    if (0 <= __s_loop_control.fd) {
+        close(__s_loop_control.fd);
+        __s_loop_control.fd = -1;
+    }
+
+    __s_loop_control.entry_count    = 0;
+    __s_loop_control.current_entry  = 0;
+    __s_loop_control.free_entry     = 0;
+    __s_loop_control.entry          = NULL;
+    __s_loop_control.terminate      = 1;
+
+    /* Shutdown watchdog */
+    loop_watchdog_exit();
 }
 
 /* Quit loop immediately */
 void loop_quit(void) {
-    __s_epoll_terminate = 1;
     loop_sd_notify("STOPPING=1");
+    loop_cleanup();
 }
 
 /* Quit loop and set success */
 void loop_exit_success(void) {
-    __s_exit_status = EXIT_SUCCESS;
-    __s_epoll_terminate = 1;
+    loop_cleanup();
+    __s_loop_control.status = EXIT_SUCCESS;
 }
 
 /* Quit loop and set failure */
 void loop_exit_failure(void) {
-    __s_exit_status = EXIT_FAILURE;
-    __s_epoll_terminate = 1;
-}
+    loop_cleanup();
+    __s_loop_control.status = EXIT_FAILURE;
+ }
 
  /* End of file */

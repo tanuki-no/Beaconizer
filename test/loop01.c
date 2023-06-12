@@ -22,11 +22,14 @@
 #include "beaconizer/watchdog.h"
 
 
+ typedef void (*sighandler_t)(int);
+
 int hci_device_id = -1;
 int descriptor = -1;
+const char *hci_dev_name = "hci0";
 
 /* Signal callback */
-static void signal_callback(int signum, void *user_data)
+static void stop(int signum)
 {
     static int __s_terminated = 0;
 
@@ -45,39 +48,58 @@ int
 main() {
 
     struct io *data = NULL;
+    sighandler_t sp = NULL;
 
     printf("Checking I/O channel ...\n");
     printf("-------------------------------------\n");
 
-    hci_device_id = hci_devid("hci0");
+    printf("Detecting %s ... ", hci_dev_name),
+    hci_device_id = hci_devid(hci_dev_name);
     if (0 > hci_device_id) {
         printf("No HCI device found. Exiting ...\n");
         return EXIT_FAILURE;
     }
+    printf("OK!\n");
 
-    printf("HCI %d detected!\n", hci_device_id),
-
+    printf("Opening HCI %d ... ", hci_device_id),
     descriptor = hci_open_dev(hci_device_id);
     if (0 > descriptor) {
         printf("HCI %d open failed: %s, %d\n", hci_device_id, strerror(errno), errno);
         return EXIT_FAILURE;
     }
+    printf("OK!\n");
 
-    printf("HCI %d opened!\n", hci_device_id),
-
+    printf("Creating loop ... ");
     loop_init();
+    printf("OK!\n");
 
-    printf("Loop created!\n");
+    printf("Add SIGINT signal handler ...");
+    errno = EXIT_SUCCESS;
+    sp = signal(SIGINT, &stop);
+    if (SIG_ERR == sp) {
+        printf("%s\n", strerror(errno));
+        return EXIT_FAILURE;
+    }
+    printf("OK!\n");
+
+    printf("Add SIGTERM signal handler ...");
+    errno = EXIT_SUCCESS;
+    sp = signal(SIGTERM, &stop);
+    if (SIG_ERR == sp) {
+        printf("%s\n", strerror(errno));
+        return EXIT_FAILURE;
+    }
+    printf("OK!\n");
 
     printf("Start loop!\n");
-    int result = loop_run_with_signal(signal_callback, NULL);
+    loop_run();
     printf("Stop loop!\n");
 
     printf("Loop quit!\n");
 
+    printf("Closing HCI %d ... ", hci_device_id),
     hci_close_dev(descriptor);
-
-    printf("HCI %d closed!\n", hci_device_id),
+    printf("OK!\n");
 
     printf("-------------------------------------\n");
     printf("Done!\n");
