@@ -1,6 +1,6 @@
 /*!
  *	\file		loop01.c
- *	\brief		Check loop
+ *	\brief		Create, run, break and destroy the loop
  *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
  *	\copyright	GNU GPL v3
  *	\date		02/06/2022
@@ -22,7 +22,7 @@
 #include "beaconizer/watchdog.h"
 
 
- typedef void (*sighandler_t)(int);
+typedef void (*sighandler_t)(int);
 
 int hci_device_id = -1;
 int descriptor = -1;

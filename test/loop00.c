@@ -1,6 +1,6 @@
 /*!
  *	\file		loop00.c
- *	\brief		Check loop
+ *	\brief		Create and destroy loop
  *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
  *	\copyright	GNU GPL v3
  *	\date		02/06/2022
