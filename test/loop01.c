@@ -42,6 +42,8 @@ static void stop(int signum)
         }
         break;
     }
+
+    printf("Signal %d caught!\n", signum);
 }
 
 int

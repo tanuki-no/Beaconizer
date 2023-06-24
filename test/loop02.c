@@ -7,6 +7,7 @@
  *	\version	1.0
  */
 
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -144,11 +145,31 @@ void close_and_remove_test_file() {
     test.count = 0;
 }
 
+/* Sample callback */
+static void sample_callback(
+    int         sd,
+    uint32_t    event_mask,
+    void        *user_data) {
+
+    int* ud = user_data;
+
+    printf("Descriptor %d, event mask: 0x%x, user data: %d\n", sd, event_mask, NULL == ud ? -1 : *ud);
+}
+
+/* Sample destroy */
+static void sample_destroy(
+    void        *user_data) {
+
+    int* ud = user_data;
+
+    printf("Clean up! User data: %d\n", NULL == ud ? -1 : *ud);
+}
+
 /* Main course */
 int
 main() {
 
-    int e;
+    int e, i;
     struct io *data = NULL;
     sighandler_t sp = NULL;
 
@@ -201,6 +222,14 @@ main() {
     printf("OK!\n");
     
     printf("Adding %lu file descriptors ...", test_file_count);
+    for (i = 0; test.count > i; ++i) {
+        loop_add_descriptor(
+            test.fd[i],
+            EPOLLIN | EPOLLOUT | EPOLLERR,
+            &sample_callback,
+            &test.fd[i],
+            &sample_destroy);
+    }
     printf("OK!\n");
 
     printf("Start loop!\n");

@@ -31,45 +31,68 @@ typedef struct {
     void                *user_data;     /* Custom user data */
 } loop_data_t;
 
+/* Entry storage */
+typedef struct {
+    size_t              count;          /* Allocated entry count */
+    size_t              top;            /* Current entry. Always point to the top */  
+    loop_data_t       **entry;          /* Pointer to entry */
+} storage_t;
+
+typedef struct epoll_event epoll_event_t;
+
 /* Loop control structure */
 static struct {
     int             fd;             /* epoll() descriptor */
+    
     int             terminate;      /* Loop termination flag */
     int             status;         /* Exit status */
-    size_t          free_entry;     /* Loop free entry */
-    size_t          current_entry;  /* Loop current entry index */
-    size_t          entry_count;    /* Loop entry count */
-    loop_data_t**   entry;          /* Loop entry dynamic array */
-} __s_loop_control = {
+
+    storage_t       storage;        /* Entry storage */
+
+    epoll_event_t   *pool;          /* EPoll event pool */
+
+} __s_data = {
     .fd             = -1,
+
     .terminate      = 0,
     .status         = EXIT_SUCCESS,
-    .free_entry     = ENTRY_CHANGE,
-    .current_entry  = 0,
-    .entry_count    = 0,
-    .entry          = NULL
+
+    .storage        = {
+        .count      = 0,
+        .top        = 0,
+        .entry      = NULL
+    },
+
+    .pool           = NULL
 };
 
 /* Initialize loop */
 int loop_init(void) {
 
-    unsigned int i;
+    size_t i;
 
-    __s_loop_control.fd = epoll_create1(EPOLL_CLOEXEC);
-    if ( 0 > __s_loop_control.fd) {
+    /* Create epoll() descriptor */
+    __s_data.fd = epoll_create1(EPOLL_CLOEXEC);
+    if ( 0 > __s_data.fd) {
         return (0 > errno ? errno : -errno);
     }
 
-    __s_loop_control.entry_count = ENTRY_CHANGE;
-    __s_loop_control.entry = malloc(sizeof(loop_data_t) * __s_loop_control.entry_count);
-    if (NULL == __s_loop_control.entry) {
+    /* Allocate storage */
+    __s_data.storage.entry = malloc(sizeof(loop_data_t *) * ENTRY_CHANGE);
+    if (NULL == __s_data.storage.entry) {
         return (0 > ENOMEM ? ENOMEM : -ENOMEM);
     }
 
-    for (i = 0; __s_loop_control.entry_count > i; i++) {
-        __s_loop_control.entry[i] = NULL;
+    /* Initialize storage */
+    __s_data.storage.count = ENTRY_CHANGE;
+    for (i = 0; __s_data.storage.count > i; i++) {
+        __s_data.storage.entry[i] = NULL;
     }
 
+    /* Initialize event loop */
+    __s_data.pool = malloc(__s_data.storage.count * sizeof(struct epoll_event));
+
+    /* Initialize watchdog */
     loop_watchdog_init();
 
     return EXIT_SUCCESS;
@@ -99,18 +122,24 @@ int loop_add_descriptor(
     }
 
     /* Reallocate if no free memory */
-    if (0 == __s_loop_control.free_entry) {
-        size_t i = __s_loop_control.entry_count;
+    if (__s_data.storage.count == (__s_data.storage.top + 1)) {
+        loop_data_t** ep = __s_data.storage.entry;
 
-        __s_loop_control.entry_count += ENTRY_CHANGE;
-        __s_loop_control.entry = realloc(
-            __s_loop_control.entry,
-            sizeof(loop_data_t) * __s_loop_control.entry_count);
-
-        for (; __s_loop_control.entry_count > i; ++i) {
-            __s_loop_control.entry[i] = NULL;
+        if (NULL == realloc(ep, sizeof(loop_data_t *) * (__s_data.storage.count + ENTRY_CHANGE))) {
+            return (0 > ENOMEM ? ENOMEM : -ENOMEM);
         }
-        __s_loop_control.free_entry = ENTRY_CHANGE;
+
+        i = __s_data.storage.count;
+        __s_data.storage.count += ENTRY_CHANGE;
+        do {
+            __s_data.storage.entry[i++] = NULL;
+        } while (__s_data.storage.count > i);
+
+        void *p = realloc(__s_data.pool, __s_data.storage.count * sizeof(struct epoll_event));
+        if (NULL == p) {
+            return (0 > ENOMEM ? ENOMEM : -ENOMEM);
+        }
+        __s_data.pool = p;
     }
 
     /* Allocate loop entry */
@@ -133,17 +162,14 @@ int loop_add_descriptor(
     event.data.ptr         = p_data;
 
     /* Add epoll entry */
-    error = epoll_ctl(__s_loop_control.fd, EPOLL_CTL_ADD, p_data->sd, &event);
+    error = epoll_ctl(__s_data.fd, EPOLL_CTL_ADD, p_data->sd, &event);
     if (0 > error) {
         free(p_data);
         return error;
     }
 
     /* Store loop entry on success */
-    i = __s_loop_control.current_entry;
-    __s_loop_control.entry[i] = p_data;
-    __s_loop_control.current_entry++;
-    __s_loop_control.free_entry--;
+    __s_data.storage.entry[__s_data.storage.top++] = p_data;
 
     return error;
 }
@@ -156,7 +182,7 @@ int loop_modify_descriptor(
     loop_data_t *p_entry = NULL;
     struct epoll_event event;
     size_t i;
-    int error;
+    int error = EXIT_SUCCESS;
 
     /* Exit if socket descriptor is wrong */
     if (0 > sd) {
@@ -164,13 +190,14 @@ int loop_modify_descriptor(
     }
 
     /* Find entry */
-    for (i = 0; __s_loop_control.current_entry > i; ++i) {
-        if (sd == __s_loop_control.entry[i]->sd) {
-            p_entry = __s_loop_control.entry[i];
+    for (i = 0; __s_data.storage.top > i; ++i) {
+        if (sd == __s_data.storage.entry[i]->sd) {
+            p_entry = __s_data.storage.entry[i];
             break;
         }
     }
 
+    /* Entry not found. Exit! */
     if (NULL == p_entry) {
         return (0 > ENXIO ? ENXIO : -ENXIO);
     }
@@ -179,7 +206,7 @@ int loop_modify_descriptor(
     event.events = event_mask;
     event.data.ptr = p_entry;
 
-    error = epoll_ctl(__s_loop_control.fd, EPOLL_CTL_MOD, p_entry->sd, &event);
+    error = epoll_ctl(__s_data.fd, EPOLL_CTL_MOD, p_entry->sd, &event);
     if (0 > error) {
         return error;
     }
@@ -193,40 +220,45 @@ int loop_modify_descriptor(
 int loop_remove_descriptor(
     const int           sd) {
 
-    size_t i, entry_idx;
-    int error;
+    size_t i, entry_to_delete = 0;
+    loop_data_t *p_entry = NULL;
+    int error = EXIT_SUCCESS;
 
     /* Exit if socket descriptor is wrong */
     if (0 > sd) {
         return (0 > EINVAL ? EINVAL : -EINVAL);
     }
 
-    loop_data_t *p_entry = NULL;
-    for (i = 0; __s_loop_control.current_entry > i; ++i) {
-        if (sd == __s_loop_control.entry[i]->sd) {
-            p_entry = __s_loop_control.entry[i];
-            entry_idx = i;
+    /* Find entry */
+    for (i = 0; __s_data.storage.top > i; ++i) {
+        if (sd == __s_data.storage.entry[i]->sd) {
+            p_entry = __s_data.storage.entry[i];
+            entry_to_delete = i;
             break;
         }
     }
 
+    /* Entry not found */
     if (NULL == p_entry) {
         return (0 > ENXIO ? ENXIO : -ENXIO);
     }
 
-    __s_loop_control.current_entry--;
-    __s_loop_control.free_entry++;
-    for (i = entry_idx; __s_loop_control.current_entry > i; ++i) {
-        __s_loop_control.entry[i] = __s_loop_control.entry[i + 1];
+    /* Shift entries */
+    for (i = entry_to_delete; __s_data.storage.top > (i + 2); ++i) {
+        __s_data.storage.entry[i] = __s_data.storage.entry[i + 1];
     }
-    __s_loop_control.entry[__s_loop_control.current_entry] = NULL;
+    __s_data.storage.top--;
+    __s_data.storage.entry[__s_data.storage.top] = NULL;
 
-    error = epoll_ctl(__s_loop_control.fd, EPOLL_CTL_DEL, p_entry->sd, NULL);
+    /* Remove entry from epoll() queue */
+    error = epoll_ctl(__s_data.fd, EPOLL_CTL_DEL, p_entry->sd, NULL);
 
+    /* Call destructor */
     if (NULL != p_entry->destroy) {
         p_entry->destroy(p_entry->user_data);
     }
 
+    /* Clean up */
     free(p_entry);
 
     return error;
@@ -237,27 +269,26 @@ void loop_run(void) {
 
     size_t i;
     int count;
-    struct epoll_event* event_pool = malloc(__s_loop_control.entry_count * sizeof(struct epoll_event));
 
     /* Loop */
-    while (0 == __s_loop_control.terminate) {
+    while (0 == __s_data.terminate) {
  
-        count = epoll_wait(
-            __s_loop_control.fd,
-            event_pool,
-            __s_loop_control.entry_count,
-            -1);
+        /* Wait for events */
+        count = epoll_wait(__s_data.fd, __s_data.pool, __s_data.storage.top, -1);
 
+        /* Nothing to process */
         if (0 > count)
             continue;
 
+        /* Process events */
         for (i = 0; count > i; i++) {
-            loop_data_t *p_entry = event_pool[i].data.ptr;
-            p_entry->callback(p_entry->sd, event_pool[i].events, p_entry->user_data);
+            loop_data_t *p_entry = __s_data.pool[i].data.ptr;
+            p_entry->callback(
+                p_entry->sd,
+                __s_data.pool[i].events,
+                p_entry->user_data);
         }
     }
-
-    free(event_pool);
 }
 
 /* Loop clean up */
@@ -265,17 +296,17 @@ static void loop_cleanup() {
     loop_data_t *p_data = NULL;
     size_t i = 0;
 
-    /* Free allocated memory */
-    if (NULL != __s_loop_control.entry) {
+    /* Clean up loop entries */
+    if (NULL != __s_data.storage.entry) {
 
         /* Free entries */
-        for (; __s_loop_control.current_entry > i; ++i) {
-            p_data = __s_loop_control.entry[i];
-            __s_loop_control.entry[i] = NULL;
+        for (; __s_data.storage.top > i; ++i) {
+            p_data = __s_data.storage.entry[i];
+            __s_data.storage.entry[i] = NULL;
 
             if (NULL != p_data) {
 
-                epoll_ctl(__s_loop_control.fd, EPOLL_CTL_DEL, p_data->sd, NULL);
+                epoll_ctl(__s_data.fd, EPOLL_CTL_DEL, p_data->sd, NULL);
 
                 if (NULL != p_data->destroy) {
                     p_data->destroy(p_data->user_data);
@@ -285,21 +316,28 @@ static void loop_cleanup() {
             }
         }
 
-        free(__s_loop_control.entry);
+        free(__s_data.storage.entry);
+
+        __s_data.storage.top = 0;
+        __s_data.storage.count = 0;
+        __s_data.storage.entry = NULL;
     }
 
     /* Close epoll descriptor() if open */
-    if (0 <= __s_loop_control.fd) {
-        close(__s_loop_control.fd);
-        __s_loop_control.fd = -1;
+    if (0 <= __s_data.fd) {
+        close(__s_data.fd);
+        __s_data.fd = -1;
     }
 
-    __s_loop_control.entry_count    = 0;
-    __s_loop_control.current_entry  = 0;
-    __s_loop_control.free_entry     = 0;
-    __s_loop_control.entry          = NULL;
-    __s_loop_control.terminate      = 1;
+    /* Clean up event pool */
+    if (NULL != __s_data.pool) {
+        free(__s_data.pool);
+        __s_data.pool = NULL;
+    }
 
+    /* Done! */
+    __s_data.terminate = 1;
+    
     /* Shutdown watchdog */
     loop_watchdog_exit();
 }
@@ -313,13 +351,13 @@ void loop_quit(void) {
 /* Quit loop and set success */
 void loop_exit_success(void) {
     loop_cleanup();
-    __s_loop_control.status = EXIT_SUCCESS;
+    __s_data.status = EXIT_SUCCESS;
 }
 
 /* Quit loop and set failure */
 void loop_exit_failure(void) {
     loop_cleanup();
-    __s_loop_control.status = EXIT_FAILURE;
+    __s_data.status = EXIT_FAILURE;
  }
 
  /* End of file */
