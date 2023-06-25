@@ -11,6 +11,7 @@ list ( APPEND TEST   "io01" )
 list ( APPEND TEST   "loop00" )
 list ( APPEND TEST   "loop01" )
 list ( APPEND TEST   "loop02" )
+list ( APPEND TEST   "loop03" )
 
 # Library test
 # -----------------------------------------------------------------

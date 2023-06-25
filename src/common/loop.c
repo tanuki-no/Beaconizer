@@ -19,7 +19,7 @@
 #include "beaconizer/loop.h"
 #include "beaconizer/watchdog.h"
 
-#define ENTRY_CHANGE   32
+#define ENTRY_CHANGE   4
 
 
 /* Loop entry type */
@@ -48,9 +48,6 @@ static struct {
     int             status;         /* Exit status */
 
     storage_t       storage;        /* Entry storage */
-
-    epoll_event_t   *pool;          /* EPoll event pool */
-
 } __s_data = {
     .fd             = -1,
 
@@ -61,9 +58,7 @@ static struct {
         .count      = 0,
         .top        = 0,
         .entry      = NULL
-    },
-
-    .pool           = NULL
+    }
 };
 
 /* Initialize loop */
@@ -88,9 +83,6 @@ int loop_init(void) {
     for (i = 0; __s_data.storage.count > i; i++) {
         __s_data.storage.entry[i] = NULL;
     }
-
-    /* Initialize event loop */
-    __s_data.pool = malloc(__s_data.storage.count * sizeof(struct epoll_event));
 
     /* Initialize watchdog */
     loop_watchdog_init();
@@ -122,24 +114,26 @@ int loop_add_descriptor(
     }
 
     /* Reallocate if no free memory */
-    if (__s_data.storage.count == (__s_data.storage.top + 1)) {
-        loop_data_t** ep = __s_data.storage.entry;
+    if (__s_data.storage.count <= (__s_data.storage.top + 1)) {
 
-        if (NULL == realloc(ep, sizeof(loop_data_t *) * (__s_data.storage.count + ENTRY_CHANGE))) {
+        loop_data_t** ep = malloc(sizeof(loop_data_t *) * (__s_data.storage.count + ENTRY_CHANGE));
+        if (NULL == ep) {
             return (0 > ENOMEM ? ENOMEM : -ENOMEM);
         }
 
-        i = __s_data.storage.count;
+        for (i = 0; __s_data.storage.count > i; ++i) {
+            ep[i] = __s_data.storage.entry[i];
+            __s_data.storage.entry[i] = NULL;
+        }
+
         __s_data.storage.count += ENTRY_CHANGE;
+
         do {
-            __s_data.storage.entry[i++] = NULL;
+            ep[i++] = NULL;
         } while (__s_data.storage.count > i);
 
-        void *p = realloc(__s_data.pool, __s_data.storage.count * sizeof(struct epoll_event));
-        if (NULL == p) {
-            return (0 > ENOMEM ? ENOMEM : -ENOMEM);
-        }
-        __s_data.pool = p;
+        free(__s_data.storage.entry);
+        __s_data.storage.entry = ep;
     }
 
     /* Allocate loop entry */
@@ -149,7 +143,6 @@ int loop_add_descriptor(
     }
 
     /* Fill loop entry */
-    memset(p_data, 0, sizeof(loop_data_t));
     p_data->sd          = sd;
     p_data->event_mask  = event_mask;
     p_data->callback    = callback;
@@ -157,21 +150,19 @@ int loop_add_descriptor(
     p_data->user_data   = user_data;
 
     /* Fill epoll() event entry */
-    memset(&event, 0, sizeof(event));
-    event.events           = event_mask;
-    event.data.ptr         = p_data;
+    event.events        = event_mask;
+    event.data.ptr      = p_data;
 
     /* Add epoll entry */
-    error = epoll_ctl(__s_data.fd, EPOLL_CTL_ADD, p_data->sd, &event);
-    if (0 > error) {
+    if (0 != epoll_ctl(__s_data.fd, EPOLL_CTL_ADD, p_data->sd, &event)) {
         free(p_data);
-        return error;
+        return errno;
     }
 
     /* Store loop entry on success */
     __s_data.storage.entry[__s_data.storage.top++] = p_data;
 
-    return error;
+    return EXIT_SUCCESS;
 }
 
 /* Modify watched descriptor */
@@ -269,12 +260,13 @@ void loop_run(void) {
 
     size_t i;
     int count;
+    struct epoll_event* event_pool = malloc(sizeof(struct epoll_event) * __s_data.storage.count);
 
     /* Loop */
     while (0 == __s_data.terminate) {
  
         /* Wait for events */
-        count = epoll_wait(__s_data.fd, __s_data.pool, __s_data.storage.top, -1);
+        count = epoll_wait(__s_data.fd, event_pool, __s_data.storage.top, -1);
 
         /* Nothing to process */
         if (0 > count)
@@ -282,13 +274,12 @@ void loop_run(void) {
 
         /* Process events */
         for (i = 0; count > i; i++) {
-            loop_data_t *p_entry = __s_data.pool[i].data.ptr;
-            p_entry->callback(
-                p_entry->sd,
-                __s_data.pool[i].events,
-                p_entry->user_data);
+            loop_data_t *p_entry = event_pool[i].data.ptr;
+            p_entry->callback(p_entry->sd, event_pool[i].events, p_entry->user_data);
         }
     }
+
+    free(event_pool);
 }
 
 /* Loop clean up */
@@ -327,12 +318,6 @@ static void loop_cleanup() {
     if (0 <= __s_data.fd) {
         close(__s_data.fd);
         __s_data.fd = -1;
-    }
-
-    /* Clean up event pool */
-    if (NULL != __s_data.pool) {
-        free(__s_data.pool);
-        __s_data.pool = NULL;
     }
 
     /* Done! */

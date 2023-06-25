@@ -1,18 +1,15 @@
 /*!
- *	\file		loop02.c
- *	\brief		Loop stress test
+ *	\file		loop03.c
+ *	\brief		Loop functionality test
  *	\author		Vladislav "Tanuki" Mikhailikov \<vmikhailikov\@gmail.com\>
  *	\copyright	GNU GPL v3
  *	\date		02/06/2022
  *	\version	1.0
  */
 
+#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/epoll.h>
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -105,17 +102,9 @@ int create_and_open_test_socket(
         strncpy(p, buffer, l + 1);
         test.name[i] = p;
 
-        test.fd[i] = socket(AF_UNIX, SOCK_STREAM, 0);
+        test.fd[i] = open(test.name[i], O_CREAT, S_IRUSR | S_IWUSR);
         if (-1 == test.fd[i]) {
-            printf("Socket \"%s\" creation error: %s.\n", test.name[i], strerror(errno));
-            continue;
-        }
-
-        struct sockaddr_un name;
-        name.sun_family = AF_UNIX;
-        strcpy(name.sun_path, test.name[i]);
-        if (0 != bind(test.fd[i], (const struct sockaddr *) &name, sizeof(struct sockaddr_un))) {
-            printf("Socket \"%s\" bind error: %s.\n", test.name[i], strerror(errno));
+            printf("File \"%s\" creation error: %s.\n", test.name[i], strerror(errno));
             continue;
         }
     }
