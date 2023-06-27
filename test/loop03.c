@@ -7,9 +7,12 @@
  *	\version	1.0
  */
 
-#include <sys/epoll.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/epoll.h>
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -102,9 +105,17 @@ int create_and_open_test_socket(
         strncpy(p, buffer, l + 1);
         test.name[i] = p;
 
-        test.fd[i] = open(test.name[i], O_CREAT, S_IRUSR | S_IWUSR);
+        test.fd[i] = socket(AF_UNIX, SOCK_STREAM, 0);
         if (-1 == test.fd[i]) {
-            printf("File \"%s\" creation error: %s.\n", test.name[i], strerror(errno));
+            printf("Socket \"%s\" creation error: %s.\n", test.name[i], strerror(errno));
+            continue;
+        }
+
+        struct sockaddr_un name;
+        name.sun_family = AF_UNIX;
+        strcpy(name.sun_path, test.name[i]);
+        if (0 != bind(test.fd[i], (const struct sockaddr *) &name, sizeof(struct sockaddr_un))) {
+            printf("Socket \"%s\" bind error: %s.\n", test.name[i], strerror(errno));
             continue;
         }
     }
@@ -223,7 +234,7 @@ main() {
     
     printf("Adding %lu file descriptors ...", test_file_count);
     for (i = 0; test.count > i; ++i) {
-        loop_add_descriptor(
+        loop_add_sd(
             test.fd[i],
             EPOLLIN | EPOLLOUT | EPOLLERR,
             &sample_callback,
@@ -237,6 +248,12 @@ main() {
     printf("Stop loop!\n");
 
     printf("Loop quit!\n");
+
+    printf("Removing %lu file descriptors ...", test_file_count);
+    for (i = 0; test.count > i; ++i) {
+        loop_remove_sd(test.fd[i]);
+    }
+    printf("OK!\n");
 
     printf("Closing and removing files ... ");
     close_and_remove_test_socket();

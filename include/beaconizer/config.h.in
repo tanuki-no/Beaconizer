@@ -12,19 +12,45 @@
 #ifndef __BEACONIZER_CONFIG_H__
 #define __BEACONIZER_CONFIG_H__
 
-#define __BEACONIZER_VERSION_MAJOR	@PROJECT_VERSION_MAJOR@
-#define __BEACONIZER_VERSION_MINOR	@PROJECT_VERSION_MINOR@
-#define __BEACONIZER_VERSION_PATCH	@PROJECT_VERSION_PATCH@
-#define __BEACONIZER_VERSION_STRING "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
+#define __BEACONIZER_VERSION_MAJOR	    @PROJECT_VERSION_MAJOR@
+#define __BEACONIZER_VERSION_MINOR	    @PROJECT_VERSION_MINOR@
+#define __BEACONIZER_VERSION_PATCH	    @PROJECT_VERSION_PATCH@
+#define __BEACONIZER_VERSION_STRING     "@PROJECT_VERSION_MAJOR@.@PROJECT_VERSION_MINOR@.@PROJECT_VERSION_PATCH@"
 
-#define __LOOP_LIBRARY_VERSION_MAJOR     @CFG_LOOP_LIBRARY_MAJOR@
-#define __LOOP_LIBRARY_VERSION_MINOR     @CFG_LOOP_LIBRARY_MINOR@
-#define __LOOP_LIBRARY_VERSION_PATCH     @CFG_LOOP_LIBRARY_PATCH@
-#define __LOOP_LIBRARY_VERSION_STRING    "@CFG_LOOP_LIBRARY_VERSION@"
+#define __LOOP_LIBRARY_VERSION_MAJOR    @CFG_LOOP_LIBRARY_MAJOR@
+#define __LOOP_LIBRARY_VERSION_MINOR    @CFG_LOOP_LIBRARY_MINOR@
+#define __LOOP_LIBRARY_VERSION_PATCH    @CFG_LOOP_LIBRARY_PATCH@
+#define __LOOP_LIBRARY_VERSION_STRING   "@CFG_LOOP_LIBRARY_VERSION@"
 
 #define __MAX_EPOLL_EVENTS              @CFG_MAX_EPOLL_EVENTS@
 #define __MAX_LOOP_ENTRIES              @CFG_MAX_LOOP_ENTRIES@
 #define __WATCHDOG_TRIGGER_FREQ         @CFG_WATCHDOG_TRG_FREQ@
+
+
+/* User function used to process loop event */
+typedef void (*event_fn_t) (
+    int         sd,
+    uint32_t    event_mask,
+    void       *user_data);
+
+/* User function used to process timer */
+typedef void (*timer_fn_t) (
+    int         id,
+    void       *user_data);
+
+/* User callback */
+typedef int  (*watchdog_fn_t)(
+    void       *user_data);
+
+/* User function used to process signal in a loop */
+typedef void (*signal_fn_t) (
+    int         signum,
+    void       *user_data);
+
+/* User destructor */
+typedef void (*destructor_t) (
+    void       *user_data);
+
 
 #endif /* __BEACONIZER_CONFIG_H__ */
 

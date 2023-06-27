@@ -7,37 +7,41 @@
  *	\version	1.0
  */
 
+#include <beaconizer/config.h>
+
 #pragma once
 
 #ifndef __BEACONIZER_WATCHDOG_H__
 #define __BEACONIZER_WATCHDOG_H__
 
-/* User function used to process signal in a loop */
-typedef void (*loop_signal_fn_t) (
-    int         signum,
-    void        *user_data);
 
 /* Initialize watchdog in a loop */
-void loop_watchdog_init(void);
+void watchdog_init(void);
 
-/* Add signal handler */
-int loop_set_signal(
-    sigset_t            *mask,
-    loop_signal_fn_t    callback,
-    void                *user_data,
-    loop_destroy_fn_t   destroy);
+/* ?? */
+unsigned int watchdog_add(
+    struct timespec    *timeout,
+    watchdog_fn_t       func,
+    void               *user_data,
+    destructor_t        destructor);
+
+/* ?? */
+void watchdog_remove(
+    const unsigned int      id);
+
+/* ?? */
+unsigned int watchdog_update(
+    struct timespec    *timeout,
+    watchdog_fn_t       func,
+    void               *user_data,
+    destructor_t        destructor);
 
 /* Trigger watchdog */
-int loop_sd_notify(
+int watchdog_notify(
     const char *state);
 
-/* Run loop with signal processing */
-int loop_run_with_signal(
-    loop_signal_fn_t    func,
-    void                *user_data);
-
 /* Destroy watchdog in a loop */
-void loop_watchdog_exit(void);
+void watchdog_exit(void);
 
 #endif /* __BEACONIZER_WATCHDOG_H__ */
 

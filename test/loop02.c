@@ -234,7 +234,7 @@ main() {
     
     printf("Adding %lu file descriptors ...", test_file_count);
     for (i = 0; test.count > i; ++i) {
-        loop_add_descriptor(
+        loop_add_sd(
             test.fd[i],
             EPOLLIN | EPOLLOUT | EPOLLERR,
             &sample_callback,

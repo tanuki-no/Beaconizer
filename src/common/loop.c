@@ -21,21 +21,20 @@
 
 #define ENTRY_CHANGE   4
 
-
 /* Loop entry type */
 typedef struct {
-    int                 sd;             /* Socket descriptor */
-    uint32_t            event_mask;     /* Event mask */
-    loop_event_fn_t     callback;       /* Event callback */
-    loop_destroy_fn_t   destroy;        /* Entry clean up */
-    void                *user_data;     /* Custom user data */
-} loop_data_t;
+    int             sd;             /* Socket descriptor */
+    uint32_t        event_mask;     /* Event mask */
+    event_fn_t       callback;       /* Event callback */
+    destructor_t    destructor;     /* Entry clean up */
+    void           *user_data;      /* Custom user data */
+} event_entry_t;
 
 /* Entry storage */
 typedef struct {
     size_t              count;          /* Allocated entry count */
     size_t              top;            /* Current entry. Always point to the top */  
-    loop_data_t       **entry;          /* Pointer to entry */
+    event_entry_t     **entry;          /* Pointer to entry */
 } storage_t;
 
 typedef struct epoll_event epoll_event_t;
@@ -73,7 +72,7 @@ int loop_init(void) {
     }
 
     /* Allocate storage */
-    __s_data.storage.entry = malloc(sizeof(loop_data_t *) * ENTRY_CHANGE);
+    __s_data.storage.entry = malloc(sizeof(event_entry_t *) * ENTRY_CHANGE);
     if (NULL == __s_data.storage.entry) {
         return (0 > ENOMEM ? ENOMEM : -ENOMEM);
     }
@@ -85,20 +84,20 @@ int loop_init(void) {
     }
 
     /* Initialize watchdog */
-    loop_watchdog_init();
+    watchdog_init();
 
     return EXIT_SUCCESS;
 }
 
 /* Add descriptor to watch */
-int loop_add_descriptor(
+int loop_add_sd(
     const int           sd,
     const uint32_t      event_mask,
-    loop_event_fn_t     callback,
+    event_fn_t           callback,
     void                *user_data,
-    loop_destroy_fn_t   destroy) {
+    destructor_t        destructor) {
 
-    loop_data_t        *p_data = NULL;
+    event_entry_t        *p_data = NULL;
     struct epoll_event  event;
     int                 error = EXIT_SUCCESS;
     size_t              i;
@@ -116,7 +115,7 @@ int loop_add_descriptor(
     /* Reallocate if no free memory */
     if (__s_data.storage.count <= (__s_data.storage.top + 1)) {
 
-        loop_data_t** ep = malloc(sizeof(loop_data_t *) * (__s_data.storage.count + ENTRY_CHANGE));
+        event_entry_t** ep = malloc(sizeof(event_entry_t *) * (__s_data.storage.count + ENTRY_CHANGE));
         if (NULL == ep) {
             return (0 > ENOMEM ? ENOMEM : -ENOMEM);
         }
@@ -146,7 +145,7 @@ int loop_add_descriptor(
     p_data->sd          = sd;
     p_data->event_mask  = event_mask;
     p_data->callback    = callback;
-    p_data->destroy     = destroy;
+    p_data->destructor     = destructor;
     p_data->user_data   = user_data;
 
     /* Fill epoll() event entry */
@@ -166,11 +165,11 @@ int loop_add_descriptor(
 }
 
 /* Modify watched descriptor */
-int loop_modify_descriptor(
+int loop_modify_sd(
     const int           sd,
     uint32_t            event_mask) {
 
-    loop_data_t *p_entry = NULL;
+    event_entry_t *p_entry = NULL;
     struct epoll_event event;
     size_t i;
     int error = EXIT_SUCCESS;
@@ -208,11 +207,11 @@ int loop_modify_descriptor(
 }
 
 /* Remove watched descriptor */
-int loop_remove_descriptor(
+int loop_remove_sd(
     const int           sd) {
 
     size_t i, entry_to_delete = 0;
-    loop_data_t *p_entry = NULL;
+    event_entry_t *p_entry = NULL;
     int error = EXIT_SUCCESS;
 
     /* Exit if socket descriptor is wrong */
@@ -245,8 +244,8 @@ int loop_remove_descriptor(
     error = epoll_ctl(__s_data.fd, EPOLL_CTL_DEL, p_entry->sd, NULL);
 
     /* Call destructor */
-    if (NULL != p_entry->destroy) {
-        p_entry->destroy(p_entry->user_data);
+    if (NULL != p_entry->destructor) {
+        p_entry->destructor(p_entry->user_data);
     }
 
     /* Clean up */
@@ -274,7 +273,7 @@ void loop_run(void) {
 
         /* Process events */
         for (i = 0; count > i; i++) {
-            loop_data_t *p_entry = event_pool[i].data.ptr;
+            event_entry_t *p_entry = event_pool[i].data.ptr;
             p_entry->callback(p_entry->sd, event_pool[i].events, p_entry->user_data);
         }
     }
@@ -284,14 +283,17 @@ void loop_run(void) {
 
 /* Loop clean up */
 static void loop_cleanup() {
-    loop_data_t *p_data = NULL;
-    size_t i = 0;
+
+    event_entry_t *p_data = NULL;
+
+    /* Done! */
+    __s_data.terminate = 1;
 
     /* Clean up loop entries */
     if (NULL != __s_data.storage.entry) {
 
         /* Free entries */
-        for (; __s_data.storage.top > i; ++i) {
+        for (size_t i = 0; __s_data.storage.top > i; ++i) {
             p_data = __s_data.storage.entry[i];
             __s_data.storage.entry[i] = NULL;
 
@@ -299,8 +301,8 @@ static void loop_cleanup() {
 
                 epoll_ctl(__s_data.fd, EPOLL_CTL_DEL, p_data->sd, NULL);
 
-                if (NULL != p_data->destroy) {
-                    p_data->destroy(p_data->user_data);
+                if (NULL != p_data->destructor) {
+                    p_data->destructor(p_data->user_data);
                 }
 
                 free(p_data);
@@ -320,16 +322,13 @@ static void loop_cleanup() {
         __s_data.fd = -1;
     }
 
-    /* Done! */
-    __s_data.terminate = 1;
-    
     /* Shutdown watchdog */
-    loop_watchdog_exit();
+    watchdog_exit();
 }
 
 /* Quit loop immediately */
 void loop_quit(void) {
-    loop_sd_notify("STOPPING=1");
+    watchdog_notify("STOPPING=1");
     loop_cleanup();
 }
 

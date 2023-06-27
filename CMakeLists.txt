@@ -108,7 +108,8 @@ include_directories (
 list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/db.c" )
 list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/io.c" )
 list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/loop.c" )
-list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/timeout.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/signal.c" )
+list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/timer.c" )
 list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/utility.c" )
 list ( APPEND SOURCES   "${CMAKE_SOURCE_DIR}/src/common/watchdog.c" )
 

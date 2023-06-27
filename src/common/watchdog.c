@@ -24,7 +24,7 @@
 #include "beaconizer/config.h"
 #include "beaconizer/io.h"
 #include "beaconizer/loop.h"
-#include "beaconizer/timeout.h"
+#include "beaconizer/timer.h"
 #include "beaconizer/watchdog.h"
 #include "beaconizer/utility.h"
 
@@ -33,23 +33,48 @@
 static int __s_notify_fd = -1;
 static unsigned int __s_watchdog = -1;
 
-/* Callback */
+/* Timeout entry */
 typedef struct {
-    struct io           *io;
-    loop_signal_fn_t    func;
-    void                *user_data;
-} signal_data_t;
+    int                 id;             /* Socket descriptor */
+    watchdog_fn_t       callback;       /* Callback for socket descriptor timeout */
+    destructor_t        destructor;     /* Clean up */
+    void               *user_data;      /* User data if any */
+} watchdog_data_t;
 
-static signal_data_t *__s_p_signal_data = NULL;
-
-static int watchdog_callback(
+/* Callback */
+static int watchdog_stop(
     void            *user_data) {
-    loop_sd_notify("WATCHDOG=1");
+    watchdog_notify("WATCHDOG=1");
     return 1;
 }
 
+static void watchdog_callback(int id, void *user_data)
+{
+    watchdog_data_t *data = user_data;
+
+    // if (data->func(data->user_data) &&
+    //     !modify_timer(data->id, data->timeout))
+    //     return;
+
+    destroy_timer(data->id);
+}
+
+static void watchdog_destroy(void *user_data)
+{
+    if (NULL != user_data) {
+
+        watchdog_data_t *p_entry = user_data;
+
+        if (NULL != p_entry->destructor) {
+            p_entry->destructor(p_entry->user_data);
+        }
+
+        free(p_entry);
+    }
+}
+
 /* Initialize watchdog */
-void loop_watchdog_init(void) {
+void watchdog_init(void) {
 
     const char *sock = NULL;
     struct sockaddr_un addr;
@@ -85,19 +110,16 @@ void loop_watchdog_init(void) {
     if (!watchdog_usec)
         return;
 
-    msec = atoi(watchdog_usec) / 1000;
-    if (msec < 0)
-        return;
-
-    __s_watchdog = timeout_add(
-        msec / __WATCHDOG_TRIGGER_FREQ,
-        watchdog_callback,
-        NULL,
-        NULL);
+    struct timespec ts;
+    ts.tv_nsec = atoi(watchdog_usec);
+    ts.tv_sec = ts.tv_nsec / ( 1000000 * __WATCHDOG_TRIGGER_FREQ );
+    ts.tv_sec = ts.tv_nsec % ( 1000000 * __WATCHDOG_TRIGGER_FREQ );
+    
+    __s_watchdog = watchdog_add(&ts, watchdog_stop, NULL, NULL);
 }
 
 /* Trigger watchdog */
-int loop_sd_notify(
+int watchdog_notify(
     const char      *state) {
 
     int err;
@@ -112,95 +134,55 @@ int loop_sd_notify(
     return err;
 }
 
-static int signal_read(
-    struct io       *io,
-    void            *user_data) {
+/* Timeout  */
+unsigned int watchdog_add(
+    struct timespec    *timeout,
+    watchdog_fn_t       func,
+    void               *user_data,
+    destructor_t        destructor) {
 
-    signal_data_t *data = user_data;
-    struct signalfd_siginfo si;
-    ssize_t result;
-    int descriptor;
-    
-    descriptor = io_get_descriptor(io);
+    watchdog_data_t *p = malloc(sizeof(watchdog_data_t));
+    p->callback     = func;
+    p->user_data    = user_data;
+    p->destructor   = destructor;
 
-    result = read(descriptor, &si, sizeof(si));
-    if (sizeof(si) != result)
+    p->id = create_timer(timeout, watchdog_callback, p, watchdog_destroy);
+    if (p->id < 0) {
+        free(p);
         return 0;
-
-    if (data && data->func)
-        data->func(si.ssi_signo, data->user_data);
-
-    return 1;
-}
-
-static struct io *setup_signalfd(
-    void            *user_data) {
-
-    struct io *io;
-    sigset_t mask;
-    int fd;
-
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGUSR2);
-    sigaddset(&mask, SIGCHLD);
-
-    if (0 > sigprocmask(SIG_BLOCK, &mask, NULL))
-        return NULL;
-
-    fd = signalfd(-1, &mask, SFD_NONBLOCK | SFD_CLOEXEC);
-    if (0 > fd )
-        return NULL;
-
-    io = io_new(fd);
-
-    io_set_close_on_destroy(io, 1);
-    io_set_read_handler(io, signal_read, user_data, free);
-
-    return io;
-}
-
-int loop_run_with_signal(
-    loop_signal_fn_t    func,
-    void               *user_data) {
-
-    signal_data_t *data = NULL;
-    struct io *io = NULL;
-    int ret = -1;
-
-    if (NULL == func)
-        return -EINVAL;
-
-    data = malloc(sizeof(signal_data_t));
-    memset(data, 0, sizeof(signal_data_t));
-    data->func = func;
-    data->user_data = user_data;
-
-    io = setup_signalfd(data);
-    if (!io) {
-        free(data);
-        return -errno;
     }
 
-    loop_run();
+    return (unsigned int) p->id;
+}
 
-    io_destroy(io);
-    free(__s_p_signal_data);
+void watchdog_remove(
+    unsigned int id) {
 
-    return ret;
+    if (!id) {
+        return;
+    }
+
+    destroy_timer((int) id);
+}
+
+unsigned int watchdog_update(
+    struct timespec    *timeout,
+    watchdog_fn_t       func,
+    void               *user_data,
+    destructor_t        destructor)
+{
+    return watchdog_add(timeout, func, user_data, destructor);
 }
 
 /* Destroy watchdog in a loop */
-void loop_watchdog_exit(void) {
+void watchdog_exit(void) {
 
     if (0 < __s_notify_fd) {
         close(__s_notify_fd);
         __s_notify_fd = -1;
     }
 
-    timeout_remove(__s_watchdog);
+    watchdog_remove(__s_watchdog);
 }
-
 
  /* End of file */

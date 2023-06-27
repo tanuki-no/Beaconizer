@@ -7,40 +7,32 @@
  *	\version	1.0
  */
 
+#include <beaconizer/config.h>
+
 #pragma once
 
 #ifndef __BEACONIZER_LOOP_H__
 #define __BEACONIZER_LOOP_H__
 
-/* User function used to process events in a loop */
-typedef void (*loop_event_fn_t) (
-    int         sd,
-    uint32_t    event_mask,
-    void        *user_data);
-
-/* User function used to destroy loop and cleanup */
-typedef void (*loop_destroy_fn_t) (
-    void        *user_data);
-
 /* Initialize loop */
 int loop_init(void);
 
 /* Add descriptor to watch */
-int loop_add_descriptor(
-    const int           fd,
-    const uint32_t      event_mask,
-    loop_event_fn_t     event_callback,
-    void                *user_data,
-    loop_destroy_fn_t   destroy_callback);
+int loop_add_sd(
+    const int           sd,                 /* Socket descriptor */
+    const uint32_t      event_mask,         /* EPoll mask */
+    event_fn_t          callback,           /* Callback on epoll action */
+    void               *user_data,          /* User data */
+    destructor_t        destructor);        /* Destructor */
 
 /* Modify watched descriptor */
-int loop_modify_descriptor(
-    const int           fd,
-    uint32_t            events);
+int loop_modify_sd(
+    const int           sd,                 /* Socket descriptor */
+    uint32_t            event_mask);        /* EPoll mask */
 
 /* Remove watched descriptor */
-int loop_remove_descriptor(
-    const int           fd);
+int loop_remove_sd(
+    const int           sd);                /* Socket descriptor */
 
 /* Run loop */
 void loop_run(void);

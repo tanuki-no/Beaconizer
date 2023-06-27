@@ -106,7 +106,7 @@ static void io_process_event(
         _io->write_callback = NULL;
 
         if (!_io->disconnect_callback) {
-            loop_remove_descriptor(_io->descriptor);
+            loop_remove_sd(_io->descriptor);
             io_unref(_io);
             return;
         }
@@ -122,7 +122,7 @@ static void io_process_event(
 
             _io->events &= ~EPOLLRDHUP;
 
-            loop_modify_descriptor(_io->descriptor, _io->events);
+            loop_modify_sd(_io->descriptor, _io->events);
         }
     }
 
@@ -138,7 +138,7 @@ static void io_process_event(
 
             _io->events &= ~EPOLLIN;
 
-            loop_modify_descriptor(_io->descriptor, _io->events);
+            loop_modify_sd(_io->descriptor, _io->events);
         }
     }
 
@@ -155,7 +155,7 @@ static void io_process_event(
 
             _io->events &= ~EPOLLOUT;
 
-            loop_modify_descriptor(_io->descriptor, _io->events);
+            loop_modify_sd(_io->descriptor, _io->events);
         }
     }
 
@@ -177,7 +177,7 @@ io_t *io_new(
     _io->events = 0;
     _io->close_on_destroy = 0;
 
-    if (0 > loop_add_descriptor(_io->descriptor, _io->events, io_process_event, _io, io_destroy_callback)) {
+    if (0 > loop_add_sd(_io->descriptor, _io->events, io_process_event, _io, io_destroy_callback)) {
         free(_io);
         return NULL;
     }
@@ -234,7 +234,7 @@ int io_set_read_handler(
     if (events == _io->events)
         return 1;
 
-    if (loop_modify_descriptor(_io->descriptor, events) < 0)
+    if (loop_modify_sd(_io->descriptor, events) < 0)
         return 0;
 
     _io->events = events;
@@ -269,7 +269,7 @@ int io_set_write_handler(
     if (events == _io->events)
         return 1;
 
-    if (loop_modify_descriptor(_io->descriptor, events) < 0)
+    if (loop_modify_sd(_io->descriptor, events) < 0)
         return 0;
 
     _io->events = events;
@@ -304,7 +304,7 @@ int io_set_disconnect_handler(
     if (events == _io->events)
         return 1;
 
-    if (0 > loop_modify_descriptor(_io->descriptor, events))
+    if (0 > loop_modify_sd(_io->descriptor, events))
         return 0;
 
     _io->events = events;
@@ -354,7 +354,7 @@ void io_destroy(
     data->write_callback = NULL;
     data->disconnect_callback = NULL;
 
-    loop_remove_descriptor(data->descriptor);
+    loop_remove_sd(data->descriptor);
 
     io_unref(data);
 }
